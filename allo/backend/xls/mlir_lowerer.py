@@ -264,10 +264,14 @@ class MlirToDslxLowerer:
             if len(node.shape) == 0:
                 return self.emit_expr(node.elem_expr)
             elif len(node.shape) == 1:
-                return f"[{self.emit_expr(node.elem_expr)}; {node.shape[0]}]"
+                # 1D array: u32[N]:[elem, elem, ...]
+                elem_str = self.emit_expr(node.elem_expr)
+                elements = ", ".join([elem_str] * node.shape[0])
+                return f"u32[{node.shape[0]}]:[{elements}]"
             elif len(node.shape) == 2:
-                inner = f"[{self.emit_expr(node.elem_expr)}; {node.shape[1]}]"
-                return f"[{inner}; {node.shape[0]}]"
+                # 2D array: u32[INNER][OUTER]:[[elem, ...], ...]
+                elem_str = self.emit_expr(node.elem_expr)
+                return f"u32[{node.shape[1]}][{node.shape[0]}]:[[{elem_str}, ...], ...]"
             else:
                 return self.emit_expr(node.elem_expr)
         if isinstance(node, str):
@@ -285,13 +289,16 @@ class MlirToDslxLowerer:
                 if len(stmt.index_expr) == 2:
                     i_expr = self.emit_expr(stmt.index_expr[0])
                     j_expr = self.emit_expr(stmt.index_expr[1])
-                    return [f"{tab}let {stmt.buffer_name} = update({stmt.buffer_name}, {i_expr}, update({stmt.buffer_name}[{i_expr}], {j_expr}, {val_expr}));"]
+                    update_expr = f"update({stmt.buffer_name}, {i_expr}, update({stmt.buffer_name}[{i_expr}], {j_expr}, {val_expr}))"
+                    return [f"{tab}{update_expr}"]
                 else:
                     idx_expr = ", ".join(self.emit_expr(idx) for idx in stmt.index_expr)
-                    return [f"{tab}let {stmt.buffer_name} = update({stmt.buffer_name}, {idx_expr}, {val_expr});"]
+                    update_expr = f"update({stmt.buffer_name}, {idx_expr}, {val_expr})"
+                    return [f"{tab}{update_expr}"]
             else:
                 idx_expr = self.emit_expr(stmt.index_expr)
-                return [f"{tab}let {stmt.buffer_name} = update({stmt.buffer_name}, {idx_expr}, {val_expr});"]
+                update_expr = f"update({stmt.buffer_name}, {idx_expr}, {val_expr})"
+                return [f"{tab}{update_expr}"]
         if isinstance(stmt, DslxFor):
             stores = self._find_stores_in_body(stmt.body)
 
@@ -299,13 +306,29 @@ class MlirToDslxLowerer:
                 accum_names = list(set(s.buffer_name for s in stores))
                 accum_tuple = "(" + ", ".join(accum_names) + ")" if len(accum_names) > 1 else accum_names[0]
 
-                out = [f"{tab}let {accum_tuple} = for ({stmt.iter_name}, {accum_tuple}) in range(u32:{stmt.lb}, u32:{stmt.ub}) {{"]
+                # Determine if this is a top-level for loop (needs 'let') or nested (no 'let')
+                # We check if indent > 1, which means we're inside another for loop
+                is_nested = indent > 1
+
+                if is_nested:
+                    # Nested for loop: no 'let', just the for expression
+                    out = [f"{tab}for ({stmt.iter_name}, {accum_tuple}) in u32:{stmt.lb}..u32:{stmt.ub} {{"]
+                else:
+                    # Top-level for loop: has 'let'
+                    out = [f"{tab}let {accum_tuple} = for ({stmt.iter_name}, {accum_tuple}) in u32:{stmt.lb}..u32:{stmt.ub} {{"]
+
+                # Emit body statements
                 for b in stmt.body:
-                    out.extend(self.emit_stmt(b, indent + 1))
-                out.append(f"{tab}  {accum_tuple}")
-                out.append(f"{tab}}};")
+                    body_lines = self.emit_stmt(b, indent + 1)
+                    out.extend(body_lines)
+
+                # Add the accumulator initializer: }(C) or }(C);
+                if is_nested:
+                    out.append(f"{tab}}}({accum_tuple})")
+                else:
+                    out.append(f"{tab}}}({accum_tuple});")
             else:
-                out = [f"{tab}for ({stmt.iter_name}, _) in range(u32:{stmt.lb}, u32:{stmt.ub}) {{"]
+                out = [f"{tab}for ({stmt.iter_name}, _) in u32:{stmt.lb}..u32:{stmt.ub} {{"]
                 for b in stmt.body:
                     out.extend(self.emit_stmt(b, indent + 1))
                 out.append(f"{tab}  ()")

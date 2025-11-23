@@ -28,14 +28,14 @@ def main():
     if func_op is None:
         raise RuntimeError("No top-level func.func found in MLIR module")
 
-    print("found function...")
+    # print("found function...")
     # print(func_op)
 
-    print("lowering to DSLX...")
+    # print("lowering to DSLX...")
     lowerer = MlirToDslxLowerer(func_op)
     dslx_text = lowerer.lower()
 
-    print("===generated DSLX===")
+    # print("===generated DSLX===")
     print(dslx_text)
 
 
