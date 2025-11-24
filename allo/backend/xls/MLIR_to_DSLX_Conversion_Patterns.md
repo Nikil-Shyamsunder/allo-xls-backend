@@ -1,72 +1,76 @@
-# MLIR to DSLX Conversion Patterns for Systolic Arrays
+**TL;DR**
 
-## Overview
+The breakthrough was recognizing that MLIR's streaming annotations directly map to DSLX channels, and that pipeline semantics with `II=1` mean we want procs that fire every cycle. Accumulators becoming proc state was the second insight—instead of trying to pipeline a loop, we turn each iteration into a proc invocation with persistent state.
 
-This document captures the patterns discovered while manually converting Allo's systolic array MLIR IR to DSLX procs. These patterns can guide automated lowering from MLIR to DSLX.
+FIFO buffers in MLIR don't need explicit modeling in DSLX because channels already provide buffering. The extra dimension we see in MLIR FIFOs (like `2x5x4` instead of `2x4x4`) represents skewing for timing, but DSLX's asynchronous channels handle that naturally.
 
-## Key Decision: When to Use Procs vs Pure Functions
+The hardest part is topology extraction—figuring out which PE connects to which by analyzing all the subview operations. Once we have the connectivity graph, generating the spawn statements and channel wiring is straightforward.
 
-### Use Procs When:
-1. **Streaming annotations present**: `memref<..., "stream:N;SST">` in MLIR
-2. **Dataflow attribute present**: `attributes {dataflow, ...}` on functions
-3. **Pipeline annotations**: `pipeline_ii = N` in loop attributes
-4. **Multiple function instances**: Pattern like `PE_kernel_small_0_0`, `PE_kernel_small_0_1`, etc.
-5. **FIFO buffers**: Multi-dimensional buffers with extra depth dimension for streaming
 
-### Use Pure Functions When:
-- Simple combinational logic
-- Static array operations
-- No streaming or pipelining requirements
-- Single function instance
+# MLIR to DSLX Streaming Architecture
 
-## MLIR → DSLX Mapping Patterns
+This document describes our approach to converting Allo's streaming MLIR IR to DSLX procs for systolic arrays and dataflow accelerators.
 
-### 1. Streaming Memrefs → Channels
+## The Core Challenge
 
-**MLIR Pattern:**
-```mlir
-memref<4xf32, strided<[1], offset: ?>, "stream:3;SST">
-```
+Allo generates MLIR with streaming annotations and dataflow semantics, but DSLX has two execution models: pure functions and procs (processes). We need to automatically choose the right model and generate correct code.
 
-**DSLX Mapping:**
+## When to Use Procs
+
+We use procs when the MLIR contains streaming or dataflow patterns:
+- Streaming memrefs with `"stream:N;SST"` annotations
+- Functions marked with `dataflow` attribute
+- Pipelined loops with `pipeline_ii` annotations
+- Multiple PE instances suggesting spatial parallelism
+
+Otherwise, we fall back to pure functions for simple combinational logic.
+
+## Key Conversion Patterns
+
+### Streaming Memrefs → Channels
+
+MLIR streaming memrefs map directly to DSLX channels. A `memref<4xf32, "stream:3;SST">` becomes either `chan<F32> in` for inputs or `chan<F32> out` for outputs, depending on whether we see `affine.load` or `affine.store` operations.
+
+### Loops → Proc State Machines
+
+An `affine.for` loop that iterates K times becomes a proc that maintains an iteration counter in its state. Each loop iteration becomes one invocation of the proc's `next()` function. When the counter reaches K, the proc outputs its accumulated result.
+
+### PE Functions → Proc Definitions
+
+A PE function with streaming inputs/outputs gets converted to a parametric proc. For example, a 2×2 systolic array has PEs at positions (0,0), (0,1), (1,0), and (1,1). We generate a single `proc PE<row: u32, col: u32, K: u32>` and spawn it four times with different parameters.
+
+### Accumulators → Proc State
+
+Local buffers allocated with `memref.alloc` become proc state variables. A MAC (multiply-accumulate) operation needs to remember its running sum between iterations, so we store the accumulator in the proc state alongside the iteration counter.
+
+### Topology from Subviews
+
+Subview operations tell us how PEs are connected. If PE(i,j) reads from `subview[i, j, 0]` and writes to `subview[i, j+1, 0]`, that's a horizontal connection. We build the channel network by tracking these index patterns across the entire array.
+
+## Implementation Structure
+
+We built three main components in [proc_lowerer.py](proc_lowerer.py):
+
+**StreamingPattern** analyzes an MLIR module to detect whether it uses streaming or dataflow patterns. It scans for streaming annotations, dataflow attributes, and pipeline pragmas.
+
+**PEExtractor** takes a PE function and extracts its structure: which arguments are streaming channels, what accumulators it uses, and how many iterations it runs. This gives us everything we need to generate a proc.
+
+**ProcGenerator** produces the actual DSLX code. It creates the channel declarations, config function for wiring, init function for state, and next function that implements the MAC operation with proper token threading for send/recv operations.
+
+## Generated Code Example
+
+Here's what we generate for a single PE:
+
 ```dslx
-chan<F32> in   // or out, depending on usage
-```
+import float32;
+type F32 = float32::F32;
 
-**Rule:**
-- `"stream:N;SST"` annotation -> use `chan<T>`
-- Input streams (`affine.load from stream`) -> `chan<T> in`
-- Output streams (`affine.store to stream`) -> `chan<T> out`
-
-### 2. PE Functions → Proc Definitions
-
-**MLIR Pattern:**
-```mlir
-func.func @PE_kernel_small(%arg0: memref<4xf32, "stream:3;SST">,
-                          %arg1: memref<4xf32, "stream:5;SST">,
-                          %arg2: memref<4xf32, "stream:3;SST">,
-                          %arg3: memref<4xf32, "stream:5;SST">,
-                          %arg4: memref<2x4xf32>, ...) {
-  // Loop over K iterations with accumulation
-  affine.for %arg7 = 0 to 4 {
-    %a = affine.load %arg0[%arg7]
-    %b = affine.load %arg1[%arg7]
-    %prod = arith.mulf %a, %b
-    %new_v = arith.addf %v, %prod
-    affine.store %a, %arg2[%arg7]
-    affine.store %b, %arg3[%arg7]
-  }
-}
-```
-
-**DSLX Mapping:**
-```dslx
 pub proc PE<row: u32, col: u32, K: u32> {
-  a_in:  chan<F32> in;   // stream:3
-  b_in:  chan<F32> in;   // stream:5
-  a_out: chan<F32> out;  // stream:3
-  b_out: chan<F32> out;  // stream:5
-  c_out: chan<F32> out;  // result output
+  a_in:  chan<F32> in;
+  b_in:  chan<F32> in;
+  a_out: chan<F32> out;
+  b_out: chan<F32> out;
+  c_out: chan<F32> out;
 
   config(a_in: chan<F32> in, b_in: chan<F32> in,
          a_out: chan<F32> out, b_out: chan<F32> out,
@@ -99,181 +103,47 @@ pub proc PE<row: u32, col: u32, K: u32> {
 }
 ```
 
-**Key Conversions:**
-- `affine.for` loop over K → proc state with iteration counter
-- `memref.alloc` for accumulator → proc state variable
-- `affine.load` from stream → `recv()` from channel
-- `affine.store` to stream → `send()` to channel
-- Loop body → `next()` function body (executes once per iteration)
+The proc receives `a` and `b` values, computes `a*b`, accumulates the result, forwards the values to neighboring PEs, and outputs the final sum after K iterations.
 
-### 3. Multiple PE Instances → Spawn Statements
+## MLIR to DSLX Mappings
 
-**MLIR Pattern:**
-```mlir
-func.func @systolic_tile_small(...) attributes {dataflow, ...} {
-  call @PE_kernel_small_0_0(...)
-  call @PE_kernel_small_0_1(...)
-  call @PE_kernel_small_1_0(...)
-  call @PE_kernel_small_1_1(...)
-}
+| MLIR | DSLX |
+|------|------|
+| `memref<..., "stream:N">` | `chan<T>` |
+| `affine.for 0 to K` | Iteration counter in state |
+| `memref.alloc` accumulator | State variable |
+| `affine.load` from stream | `recv()` |
+| `affine.store` to stream | `send()` |
+| `arith.mulf` | `float32::mul()` |
+| `arith.addf` | `float32::add()` |
+
+## Current Status
+
+We've successfully implemented:
+- Automatic detection of streaming patterns in MLIR
+- Extraction of PE structure from functions
+- Generation of correct DSLX proc code for single PEs
+- Floating-point MAC operations using the DSLX float32 library
+- Proper channel-based dataflow with token threading
+
+We have working examples at `/tmp/systolic_2d.x`, `/tmp/systolic_2d_full.x`, and `/tmp/systolic_complete.x` showing single PEs and full 2×2 systolic arrays.
+
+## What's Next
+
+The remaining work is to fully automate the entire flow:
+- Extract the complete PE topology from subview operations
+- Generate the full proc network with all spawn statements
+- Auto-generate all channel declarations and wiring
+- Handle FIFO buffers by mapping them to channel networks
+- Create feeder procs to load input data correctly
+- Integrate this into Allo's main compilation pipeline
+
+## Testing
+
+Run the proc lowerer on an Allo systolic array:
+
+```bash
+conda run -n allo python test_proc_lowering.py
 ```
 
-**DSLX Mapping:**
-```dslx
-spawn PE<u32:0, u32:0, u32:K>(...);
-spawn PE<u32:0, u32:1, u32:K>(...);
-spawn PE<u32:1, u32:0, u32:K>(...);
-spawn PE<u32:1, u32:1, u32:K>(...);
-```
-
-**Rule:**
-- Each `@PE_kernel_small_i_j` → `spawn PE<i, j, K>`
-- Extract `i`, `j` from function suffix
-- Extract `K` from loop bounds in PE function
-
-### 4. FIFO Buffers → Channel Networks
-
-**MLIR Pattern:**
-```mlir
-%alloc = memref.alloc() : memref<2x5x4xf32, "stream:3;SST">  // A_fifo
-%alloc_0 = memref.alloc() : memref<4x3x4xf32, "stream:5;SST">  // B_fifo
-```
-
-**Analysis:**
-- `2x5x4` for matrix `2x4`: extra dimension (5 vs 4) is buffering/skewing
-- `4x3x4` for matrix `4x4`: extra dimension (3 vs 2) is buffering/skewing
-
-**DSLX Mapping:**
-```dslx
-// Create channels between PEs based on topology
-let (a_00_s, a_00_r) = chan<F32>("a_0_0");
-let (a_01_s, a_01_r) = chan<F32>("a_0_1");
-// ... etc for all connections
-```
-
-**Rule:**
-- FIFOs with streaming annotation → channel networks connecting procs
-- Dimensions indicate topology: `MxNxK` FIFO → M×N PE array, K iterations
-- Extra buffering dimension → natural channel buffering (don't need explicit FIFO proc)
-
-### 5. Subview Operations → Channel Connections
-
-**MLIR Pattern:**
-```mlir
-%subview = memref.subview %alloc[%arg3, %arg4, 0] [1, 1, 4] [1, 1, 1]
-%subview_7 = memref.subview %alloc[%arg3, %3, 0] [1, 1, 4] [1, 1, 1]
-call @PE_kernel_small_0_0(%subview, %subview_3, %subview_7, %subview_12, ...)
-```
-
-**Analysis:**
-- Subview at `[i, j, 0]` → input to PE at position (i, j)
-- Subview at `[i, j+1, 0]` → output from PE at (i, j) to PE at (i, j+1)
-
-**DSLX Mapping:**
-```dslx
-// Connect PE[i,j] outputs to PE[i,j+1] inputs
-spawn PE<i, j>(..., a_ij_r, ..., a_i_j+1_s, ...);
-```
-
-**Rule:**
-- Track subview indices to determine channel connectivity
-- `[row, col, 0]` and `[row, col+1, 0]` → horizontal connection (A flows left-to-right)
-- `[row, col, 0]` and `[row+1, col, 0]` → vertical connection (B flows top-to-bottom)
-
-### 6. Floating-Point Operations
-
-**MLIR Pattern:**
-```mlir
-%0 = arith.mulf %a, %b : f32
-%1 = arith.addf %c, %0 : f32
-```
-
-**DSLX Mapping:**
-```dslx
-import float32;
-type F32 = float32::F32;
-
-let prod = float32::mul(a, b);
-let sum = float32::add(c, prod);
-```
-
-**Rule:**
-- `f32` type → `F32` (from float32 library)
-- `arith.mulf` → `float32::mul()`
-- `arith.addf` → `float32::add()`
-- Import `float32` library for all FP operations
-
-### 7. Loop Bounds → Parametric Constants
-
-**MLIR Pattern:**
-```mlir
-affine.for %arg7 = 0 to 4 { ... }  // K dimension
-affine.for %arg3 = 0 to 2 { ... }  // M dimension
-affine.for %arg4 = 0 to 4 { ... }  // N dimension
-```
-
-**DSLX Mapping:**
-```dslx
-pub proc PE<row: u32, col: u32, K: u32> { ... }
-spawn PE<u32:0, u32:0, u32:4>(...);  // K=4
-```
-
-**Rule:**
-- Extract loop bounds as parametric constants
-- Pass to procs as template parameters
-- Use in proc state for iteration counting
-
-## Complete Conversion Algorithm
-
-### Phase 1: Detect Proc Requirements
-1. Scan for `"stream:..."` annotations → need procs
-2. Scan for `dataflow` attribute → need proc network
-3. Scan for `pipeline_ii` → need procs for pipelining
-4. If any detected → use proc-based approach
-
-### Phase 2: Extract PE Structure
-1. Find PE function (pattern: `@PE_kernel_*`)
-2. Extract streaming inputs/outputs from memref arguments
-3. Extract loop bounds for K dimension
-4. Extract accumulator variables (from `memref.alloc`)
-5. Map to proc definition with:
-   - Channels for streaming args
-   - State for accumulators + iteration counter
-   - next() body from loop body
-
-### Phase 3: Extract Topology
-1. Find functions with multiple instances (e.g., `@PE_kernel_0_0`, `@PE_kernel_0_1`)
-2. Extract grid dimensions from instance count
-3. Find FIFO allocations to determine topology:
-   - `memref<MxNxK, "stream:3">` → M rows, N-1 columns (or N+buffering)
-4. Build connectivity graph from subview operations
-
-### Phase 4: Generate Proc Network
-1. Generate channel declarations for all PE interconnections
-2. Generate spawn statements for each PE instance
-3. Wire channels based on topology (left-to-right for A, top-to-bottom for B)
-4. Add drain channels for outputs
-
-### Phase 5: Generate Test/Wrapper
-1. Create feeder procs or test proc to provide inputs
-2. Match the three-phase pattern from MLIR:
-   - Load phase: feed data to FIFOs
-   - Compute phase: PEs execute
-   - Drain phase: collect results
-3. Generate channel send/recv in correct order
-
-## Working Examples
-
-See these files for complete working examples:
-- `/tmp/systolic_2d.x` - Single PE test
-- `/tmp/systolic_2d_full.x` - 2×4 PE array
-- `/tmp/systolic_complete.x` - 2×2 PE array with full matrix multiply
-
-## Next Steps for Automation
-
-1. Implement MLIR analysis pass to detect streaming/dataflow patterns
-2. Build symbol table mapping MLIR ops to DSLX constructs
-3. Implement topology extractor from subview operations
-4. Generate proc definitions from PE functions
-5. Generate spawn network from topology
-6. Handle edge cases (different buffer sizes, multiple streams, etc.)
+This shows the MLIR IR, pattern detection results, and generated DSLX code.
