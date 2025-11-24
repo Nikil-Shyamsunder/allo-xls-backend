@@ -1,0 +1,5 @@
+/home/yb265/allo-xls-backend/llm/outputs/gpt4omini.x:1:1-1:4
+0001: def allo_gemm(A: xls.int32[32, 32], B: xls.int32[32, 32]) -> xls.int32[32, 32]:
+~~~~~~^-^ ParseError: Expected start of top-level construct; got: 'def'
+0002:     C: xls.int32[32, 32] = xls.zeros(xls.int32[32, 32])
+0003:     for i, j, k in xls.grid
