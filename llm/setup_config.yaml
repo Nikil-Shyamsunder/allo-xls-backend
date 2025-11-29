@@ -1,3 +1,9 @@
 openai:
   api_key: 
   model: gpt-4o-mini
+input:
+  language: dls # dls or mlir
+  source: example_gemm.py # file path relative to ./input directory
+  additional_instructions: example_gemm.txt 
+output:
+  language: dslx # dslx or i forgot what the other one was

@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(0, '/home/yb265/allo-xls-backend')
+
 import allo
 from allo.ir.types import int32
 from allo._mlir.dialects import func as func_d

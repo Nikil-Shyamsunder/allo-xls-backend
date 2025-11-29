@@ -1,7 +1,7 @@
 """Test proc-based lowering on systolic array."""
 
 import sys
-sys.path.insert(0, '/home/nvs26/allo-xls-backend')
+sys.path.insert(0, '/home/yb265/allo-xls-backend')
 
 import allo
 from allo.ir.types import float32
