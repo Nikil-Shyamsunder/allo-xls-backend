@@ -1,33 +1,50 @@
-"""XLS backend for MLIR to DSLX lowering."""
+"""XLS backend for DSLX code generation.
 
-from .codegen_context import CodegenContext
-from .dslx_nodes import (
-    DslxNode,
-    DslxVar,
-    DslxConst,
-    DslxBinOp,
-    DslxLoad,
-    DslxStore,
-    DslxFor,
-    DslxLet,
-    DslxArrayInit,
-    DslxFunction,
+This module provides MLIR to DSLX lowering with AST-based code generation.
+"""
+
+# AST infrastructure
+from .dslx_ast import DslxProcSerializer
+from .dslx_ast.proc_ast import *
+from .dslx_ast.function_ast import *
+
+# Builders
+from .builders import (
+    PEProcBuilder,
+    ProcModuleBuilder,
+    GridChannelNetworkBuilder,
+    GridSpawnBuilder,
+    SystolicArrayBuilder
 )
-from .mlir_lowerer import MlirToDslxLowerer
-from .debug_utils import debug_print_ir
+
+# Lowering
+from .lowering import MlirToDslxProcLowererAST
+
+# Systolic array extraction
+from .systolic import (
+    GridExtractor,
+    FIFOAnalyzer,
+    ConnectivityExtractor,
+    PEAnalyzer
+)
 
 __all__ = [
-    "CodegenContext",
-    "DslxNode",
-    "DslxVar",
-    "DslxConst",
-    "DslxBinOp",
-    "DslxLoad",
-    "DslxStore",
-    "DslxFor",
-    "DslxLet",
-    "DslxArrayInit",
-    "DslxFunction",
-    "MlirToDslxLowerer",
-    "debug_print_ir",
+    # AST
+    'DslxProcSerializer',
+    
+    # Builders
+    'PEProcBuilder',
+    'ProcModuleBuilder',
+    'GridChannelNetworkBuilder',
+    'GridSpawnBuilder',
+    'SystolicArrayBuilder',
+    
+    # Lowering
+    'MlirToDslxProcLowererAST',
+    
+    # Extraction
+    'GridExtractor',
+    'FIFOAnalyzer',
+    'ConnectivityExtractor',
+    'PEAnalyzer',
 ]
