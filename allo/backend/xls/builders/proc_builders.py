@@ -355,39 +355,39 @@ class SystolicArrayBuilder:
         return module_builder.build()
 
     def _build_top_level(self, internal_channels, spawns):
-        """Build top-level SystolicArray proc."""
-        
+        """Build top-level SystolicArray proc with complete data feeding logic."""
+
         # Create input/output channel declarations
         input_chans = []
         output_chans = []
-        
+
         # Add row input channels
         for i in range(self.rows):
             input_chans.append(DslxChannelDecl(f"a_row_{i}", self.elem_type, "in"))
-        
+
         # Add column input channels
         for j in range(self.cols):
             input_chans.append(DslxChannelDecl(f"b_col_{j}", self.elem_type, "in"))
-        
+
         # Add result output channel
-        result_type = f"{self.elem_type}[{self.rows}][{self.cols}]"
+        # DSLX arrays use [INNER][OUTER] convention, so [cols][rows] for row-major indexing
+        result_type = f"{self.elem_type}[{self.cols}][{self.rows}]"
         output_chans.append(DslxChannelDecl("c_result", result_type, "out"))
-        
+
         all_channels = input_chans + output_chans
-        
+
         # Build config
         config_params = [(ch.name, ch.chan_type, ch.direction) for ch in all_channels]
         config_body = DslxTuple([DslxVar(ch.name) for ch in all_channels])
         config = DslxConfigFunc(config_params, config_body)
-        
+
         # Build init
         init = DslxInitFunc(DslxTuple([]))
-        
-        # Build next function (simplified - would need data feeding logic)
-        # Note: No explicit () return needed - DSLX implies it after statements
-        next_stmts = internal_channels + spawns
+
+        # Build next function with complete data feeding logic
+        next_stmts = internal_channels + spawns + self._build_data_feeding_logic()
         next_func = DslxNextFunc("()", DslxBlock(next_stmts))
-        
+
         return DslxProc(
             name="SystolicArray",
             channels=all_channels,
@@ -396,3 +396,83 @@ class SystolicArrayBuilder:
             next_func=next_func,
             is_public=True
         )
+
+    def _build_data_feeding_logic(self):
+        """Build the data feeding and collection logic for the next function."""
+        stmts = []
+
+        # Initialize token
+        stmts.append(DslxLet(DslxVar("tok"), DslxFuncCall("join", [])))
+
+        # Feed A matrix rows (for each row, send K elements)
+        for i in range(self.rows):
+            for k in range(self.k_bound):
+                # Receive from input
+                stmts.append(DslxLet(
+                    DslxTuple([DslxVar("tok"), DslxVar(f"a_{i}_{k}")]),
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"a_row_{i}")])
+                ))
+                # Send to grid
+                stmts.append(DslxLet(
+                    DslxVar("tok"),
+                    DslxChannelOp("send", [DslxVar("tok"), DslxVar(f"a_fifo_{i}_0_s"), DslxVar(f"a_{i}_{k}")])
+                ))
+
+        # Feed B matrix columns (for each col, send K elements)
+        for j in range(self.cols):
+            for k in range(self.k_bound):
+                # Receive from input
+                stmts.append(DslxLet(
+                    DslxTuple([DslxVar("tok"), DslxVar(f"b_{k}_{j}")]),
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"b_col_{j}")])
+                ))
+                # Send to grid
+                stmts.append(DslxLet(
+                    DslxVar("tok"),
+                    DslxChannelOp("send", [DslxVar("tok"), DslxVar(f"b_fifo_{j}_0_s"), DslxVar(f"b_{k}_{j}")])
+                ))
+
+        # Collect results from PEs
+        for i in range(self.rows):
+            for j in range(self.cols):
+                stmts.append(DslxLet(
+                    DslxTuple([DslxVar("tok"), DslxVar(f"c_{i}_{j}")]),
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"c_out_{i}_{j}_r")])
+                ))
+
+        # Drain A_fifo right edge
+        for i in range(self.rows):
+            for k in range(self.k_bound):
+                stmts.append(DslxLet(
+                    DslxTuple([DslxVar("tok"), DslxVar("_")]),
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"a_fifo_{i}_{self.cols}_r")])
+                ))
+
+        # Drain B_fifo bottom edge
+        for j in range(self.cols):
+            for k in range(self.k_bound):
+                stmts.append(DslxLet(
+                    DslxTuple([DslxVar("tok"), DslxVar("_")]),
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"b_fifo_{j}_{self.rows}_r")])
+                ))
+
+        # Build result matrix
+        # DSLX arrays use [INNER][OUTER] convention, so [cols][rows] for row-major indexing
+        result_rows = []
+        for i in range(self.rows):
+            row_elements = [DslxVar(f"c_{i}_{j}") for j in range(self.cols)]
+            result_rows.append(DslxArrayLiteral(f"{self.elem_type}[{self.cols}]", row_elements))
+
+        stmts.append(DslxLet(
+            DslxVar("C"),
+            DslxArrayLiteral(f"{self.elem_type}[{self.cols}][{self.rows}]", result_rows)
+        ))
+
+        # Send result
+        stmts.append(DslxLet(
+            DslxVar("tok"),
+            DslxChannelOp("send", [DslxVar("tok"), DslxVar("c_result"), DslxVar("C")])
+        ))
+
+        # Return unit is implicit after statements - no need to add ()
+        return stmts

@@ -192,7 +192,16 @@ class DslxProcSerializer:
             return f"({elements_str})"
 
         elif isinstance(expr, DslxArrayLiteral):
-            elements_str = ", ".join(self._serialize_expr(e) for e in expr.elements)
+            # For nested arrays, serialize inner array literals without type annotation
+            elements = []
+            for e in expr.elements:
+                if isinstance(e, DslxArrayLiteral):
+                    # Nested array - serialize elements without type prefix
+                    inner_elements = ", ".join(self._serialize_expr(ie) for ie in e.elements)
+                    elements.append(f"[{inner_elements}]")
+                else:
+                    elements.append(self._serialize_expr(e))
+            elements_str = ", ".join(elements)
             return f"{expr.elem_type}:[{elements_str}]"
 
         elif isinstance(expr, DslxChannelOp):
