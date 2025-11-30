@@ -64,5 +64,9 @@ class State(TypedDict):
 
     # ----------- done ----------- TODO
     # inputs
-    prompt_token: int
-    completion_token: int
+    # - error_code
+    # - gen_idx
+    # - prompt_token
+    # - completion_token
+    # - output_dir
+    # - basename

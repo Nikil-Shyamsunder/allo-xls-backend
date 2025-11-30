@@ -1,8 +1,5 @@
 import logging
-import re
 import os
-import docker
-import uuid
 from typing import List, Dict
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,7 @@ def node(state: State):
         assert error_code is not None, "error_code cannot be None"
         assert error_message is not None, f"error_message cannot be None"
     except AssertionError as e:
-        logging.error(e)
+        logger.error(e)
         raise e
     
     # get the original generated output
@@ -37,7 +34,7 @@ def node(state: State):
 
         assert generated_output.strip() != "", f"found empty generated content: {output_file}"
     except Exception as e:
-        logging.error(e)
+        logger.error(e)
         raise e
 
     # accumulate the output for this generation
@@ -47,14 +44,12 @@ def node(state: State):
     }]
 
     acc_output += output_summary
-    logging.info(acc_output)
+    logger.info(acc_output)
     loopback_context = format_context(acc_output)
-
-    logging.info(f"loopback_context: \n{loopback_context}")
 
     return {
         "gen_idx": 1,
-        "loopback_context": format_context(acc_output),
+        "loopback_context": loopback_context,
         "acc_output": output_summary
     }
 
@@ -62,8 +57,8 @@ def format_context(acc_output: List[Dict]):
     output = ""
     for i in range(len(acc_output)):
         output += f"Generation {i}: \n"
-        output += f'{acc_output[i]["generated_output"]} \n'
+        output += f'{acc_output[i]["generated_output"].strip()} \n'
         output += '\n'
         output += f"Error message {i}: \n"
-        output += f'{acc_output[i]["error_message"]} \n\n'
+        output += f'{acc_output[i]["error_message"].strip()} \n\n'
     return output

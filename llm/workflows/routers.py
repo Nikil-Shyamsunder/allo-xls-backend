@@ -8,4 +8,4 @@ def router(state: State) -> bool:
 
     Router checks if there are errors in the overall state.
     """
-    return state["error_code"] and (state.get("gen_idx", 0) < 10)
+    return state["error_code"] and (state.get("gen_idx", 0) < 9)

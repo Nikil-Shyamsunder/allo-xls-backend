@@ -24,7 +24,7 @@ def node(state: State):
         assert os.path.isdir(output_dir), f"output_dir must exist: {output_dir}"
         assert os.path.isfile(output_file), f"output_file must exist: {output_file}"
     except AssertionError as e:
-        logging.error(e)
+        logger.error(e)
         raise e
 
     # docker
@@ -32,7 +32,7 @@ def node(state: State):
     client = docker.from_env()
 
     # copy output file content to docker image temp dir
-    logging.info(f"copying output file to container {container_name}")
+    logger.info(f"copying output file to container {container_name}")
     output_container_path = f"/tmp/{basename}_{gen_idx}_{uuid.uuid4()}.txt"
     
     with open(output_file, "r") as f:
@@ -46,17 +46,19 @@ def node(state: State):
     try:
         assert exit_code == 0, f"failed to copy file to container: {output}"
     except AssertionError as e:
-        logging.error(e)
+        logger.error(e)
         raise e
     
-    logging.info(f"copied output file to {output_container_path}")
+    logger.info(f"copied output file to {output_container_path}")
 
     # run the interpreter
     interpreter_main = "~/xls/bazel-bin/xls/dslx/interpreter_main"
 
     error_code, error_message = container.exec_run(["sh", "-c", f"{interpreter_main} {output_container_path}"])
 
-    logging.info(f"interpreter output: {error_message}")
+    error_message = error_message.decode("utf-8")
+
+    logger.info(f"interpreter output: {error_message}")
     
     return {
         "error_code": error_code,

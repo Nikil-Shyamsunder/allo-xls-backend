@@ -54,7 +54,7 @@ def node(state: State):
         assert output_dir is not None, "output_dir cannot be None"
         assert os.path.isdir(output_dir), f"output_dir must exist: {output_dir}"
     except AssertionError as e:
-        logging.error(e)
+        logger.error(e)
         raise e
 
     # construct user message
@@ -62,7 +62,7 @@ def node(state: State):
         with open(input_file_path, "r") as f:
             allo_content = f.read()
     except Exception as e:
-        logging.error(e)
+        logger.error(e)
         raise e
 
     # additional instructions
@@ -74,7 +74,7 @@ def node(state: State):
             if additional_instructions.strip() != "":
                 instructions_suffix = additional_instructions_suffix.format(additional_instructions=additional_instructions)
         except FileNotFoundError as e:
-            logging.warning(f"instructions_file_path: {instructions_file_path} not found. No instructions given")
+            logger.warning(f"instructions_file_path: {instructions_file_path} not found. No instructions given")
 
      
     # retry context
@@ -84,8 +84,8 @@ def node(state: State):
         loopback_suffix = ""
     
     user_msg = user_message.format(allo_dsl=allo_content) + instructions_suffix + loopback_suffix
-    logging.info(f"system_msg: {system_message}")
-    logging.info(f"user_msg: {user_msg}")
+    logger.info(f"system_msg: {system_message}")
+    logger.info(f"user_msg: {user_msg}")
 
     # generate
     retry = True
@@ -105,10 +105,10 @@ def node(state: State):
             acc_c_token += completion_token
             
             # log attempts
-            logging.info(f"Attempt #{retry_idx}")
-            logging.info(f"llm_response: {llm_response}")
-            logging.info(f"prompt_token: {prompt_token}")
-            logging.info(f"completion_token: {completion_token}")
+            logger.info(f"Attempt #{retry_idx}")
+            logger.info(f"llm_response: {llm_response}")
+            logger.info(f"prompt_token: {prompt_token}")
+            logger.info(f"completion_token: {completion_token}")
 
             # process llm response
             parsed_response = re.findall(r"<CODE>(.*?)</CODE>", llm_response, flags=re.DOTALL)
@@ -116,7 +116,7 @@ def node(state: State):
             retry = False
 
         except Exception as e:
-            logging.error(e)
+            logger.error(e)
             retry_idx += 1
             if retry_idx >= 10:
                 raise e

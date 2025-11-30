@@ -8,7 +8,7 @@ import logging
 
 # Create and configure logger
 logging.basicConfig(filename="output.log",
-                    format='%(asctime)s %(message)s',
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     filemode='w',
                     level=logging.INFO)
 
@@ -48,7 +48,7 @@ def setup():
 
 def main():
     initialization = setup()
-    workflow.invoke(initialization)
+    workflow.invoke(initialization, {"recursion_limit": 35})
 
 if __name__ == "__main__":
     main()
