@@ -9,7 +9,8 @@ from ..systolic import (
     GridExtractor,
     FIFOAnalyzer,
     ConnectivityExtractor,
-    PEAnalyzer
+    PEAnalyzer,
+    MatrixDimensionExtractor
 )
 from ..builders import SystolicArrayBuilder, ProcModuleBuilder, PEProcBuilder
 from ..dslx_ast import DslxProcSerializer
@@ -59,12 +60,28 @@ class MlirToDslxProcLowererAST:
             k_bound = pe_info['k_bound']
             elem_type = pe_info['element_type']
 
+            # Step 2.5: Find top-level function and extract matrix dimensions
+            top_func = self._auto_find_top_level_func()
+            if top_func:
+                print(f"[AST Lowerer] Using top-level function: {top_func.name.value}")
+                matrix_dims = MatrixDimensionExtractor(top_func).extract()
+                M = matrix_dims['M']
+                N = matrix_dims['N']
+                print(f"[AST Lowerer] Matrix dimensions: M={M}, N={N}, K={matrix_dims['K']}")
+            else:
+                # Fallback: assume PE grid dimensions match output dimensions
+                print(f"[AST Lowerer] Warning: Could not find top-level function, using grid dimensions")
+                M = rows
+                N = cols
+
             print(f"[AST Lowerer] Grid: {rows}x{cols}, K={k_bound}, type={elem_type}")
 
             # Step 3: Build using AST
             builder = SystolicArrayBuilder(
                 rows=rows,
                 cols=cols,
+                m_dim=M,
+                n_dim=N,
                 k_bound=k_bound,
                 elem_type=elem_type
             )
@@ -155,6 +172,43 @@ class MlirToDslxProcLowererAST:
                                 return self._find_function(callee_name)
         except:
             pass
+
+        return None
+
+    def _auto_find_top_level_func(self):
+        """Find the top-level entry point function.
+
+        The top-level function typically:
+        - Has a simple structure (allocates output, calls grid function, returns result)
+        - Has 2 input arguments (A, B matrices)
+        - Returns a memref (C matrix)
+        - Name often contains the systolic dimension info
+        """
+        candidates = []
+
+        for op in self.module_op.body.operations:
+            if not isinstance(op, func_d.FuncOp):
+                continue
+
+            # Check if it has 2 arguments (A, B matrices)
+            if len(op.arguments) == 2:
+                # Check if it returns a memref
+                try:
+                    func_type = op.function_type.value
+                    # If this function has results (returns something), it's likely the top-level
+                    if hasattr(func_type, 'results') and len(func_type.results) > 0:
+                        candidates.append(op)
+                except:
+                    pass
+
+        # If we found candidates, return the one with the most descriptive name
+        if candidates:
+            # Prefer functions with "systolic" in the name
+            for func in candidates:
+                if 'systolic' in func.name.value.lower():
+                    return func
+            # Otherwise return the first candidate
+            return candidates[0]
 
         return None
 

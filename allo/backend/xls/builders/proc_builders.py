@@ -310,32 +310,36 @@ class GridSpawnBuilder:
 
 class SystolicArrayBuilder:
     """Complete builder for systolic array procs using AST.
-    
+
     Combines PE, channel network, and top-level proc generation.
     """
 
-    def __init__(self, rows, cols, k_bound, elem_type="F32"):
+    def __init__(self, rows, cols, k_bound, elem_type="F32", m_dim=None, n_dim=None):
         self.rows = rows
         self.cols = cols
         self.k_bound = k_bound
         self.elem_type = elem_type
+        # Matrix output dimensions (M, N) - default to PE grid dimensions if not specified
+        self.m_dim = m_dim if m_dim is not None else rows
+        self.n_dim = n_dim if n_dim is not None else cols
 
     def build_complete_module(self):
         """Build complete systolic array module with PE and top-level proc."""
-        
+
         # Build PE proc
         pe_builder = PEProcBuilder(elem_type=self.elem_type, k_param=True)
         pe_proc = pe_builder.build_mac_proc(name="PE")
 
-        # Build channel network
-        chan_builder = GridChannelNetworkBuilder(self.rows, self.cols, self.elem_type)
+        # Build channel network for M×N PEs (the actual computation grid)
+        # Note: rows×cols is the PE grid size from MLIR, but M×N is the actual output size
+        chan_builder = GridChannelNetworkBuilder(self.m_dim, self.n_dim, self.elem_type)
         chan_builder.add_horizontal_channels("a_fifo")
         chan_builder.add_vertical_channels("b_fifo")
         chan_builder.add_output_channels("c_out")
         channels = chan_builder.build()
 
-        # Build spawn network
-        spawn_builder = GridSpawnBuilder(self.rows, self.cols, self.k_bound, "PE")
+        # Build spawn network for M×N PEs
+        spawn_builder = GridSpawnBuilder(self.m_dim, self.n_dim, self.k_bound, "PE")
         spawn_builder.add_grid_spawns("systolic")
         spawns = spawn_builder.build()
 
@@ -361,31 +365,46 @@ class SystolicArrayBuilder:
         input_chans = []
         output_chans = []
 
-        # Add row input channels
-        for i in range(self.rows):
+        # Add row input channels (M rows for matrix A)
+        for i in range(self.m_dim):
             input_chans.append(DslxChannelDecl(f"a_row_{i}", self.elem_type, "in"))
 
-        # Add column input channels
-        for j in range(self.cols):
+        # Add column input channels (N columns for matrix B)
+        for j in range(self.n_dim):
             input_chans.append(DslxChannelDecl(f"b_col_{j}", self.elem_type, "in"))
 
-        # Add result output channel
-        # DSLX arrays use [INNER][OUTER] convention, so [cols][rows] for row-major indexing
-        result_type = f"{self.elem_type}[{self.cols}][{self.rows}]"
+        # Add result output channel (M×N result matrix C)
+        # DSLX arrays use [INNER][OUTER] convention, so [n_dim][m_dim] for row-major indexing
+        result_type = f"{self.elem_type}[{self.n_dim}][{self.m_dim}]"
         output_chans.append(DslxChannelDecl("c_result", result_type, "out"))
 
-        all_channels = input_chans + output_chans
+        external_channels = input_chans + output_chans
 
-        # Build config
-        config_params = [(ch.name, ch.chan_type, ch.direction) for ch in all_channels]
-        config_body = DslxTuple([DslxVar(ch.name) for ch in all_channels])
+        # Create internal channel declarations from channel creation statements
+        internal_chan_decls = []
+        internal_chan_names = []
+        for chan_create in internal_channels:
+            # Add declarations for sender and receiver ends
+            internal_chan_decls.append(DslxChannelDecl(chan_create.sender_name, chan_create.chan_type, "out"))
+            internal_chan_decls.append(DslxChannelDecl(chan_create.receiver_name, chan_create.chan_type, "in"))
+            internal_chan_names.extend([chan_create.sender_name, chan_create.receiver_name])
+
+        all_channels = external_channels + internal_chan_decls
+
+        # Build config with channel creation and spawns
+        config_params = [(ch.name, ch.chan_type, ch.direction) for ch in external_channels]
+        config_stmts = internal_channels + spawns
+        # Return tuple of external channels + internal channels
+        return_vars = [DslxVar(ch.name) for ch in external_channels] + [DslxVar(name) for name in internal_chan_names]
+        config_stmts.append(DslxTuple(return_vars))
+        config_body = DslxBlock(config_stmts)
         config = DslxConfigFunc(config_params, config_body)
 
         # Build init
         init = DslxInitFunc(DslxTuple([]))
 
-        # Build next function with complete data feeding logic
-        next_stmts = internal_channels + spawns + self._build_data_feeding_logic()
+        # Build next function with only data feeding logic
+        next_stmts = self._build_data_feeding_logic()
         next_func = DslxNextFunc("()", DslxBlock(next_stmts))
 
         return DslxProc(
@@ -404,8 +423,8 @@ class SystolicArrayBuilder:
         # Initialize token
         stmts.append(DslxLet(DslxVar("tok"), DslxFuncCall("join", [])))
 
-        # Feed A matrix rows (for each row, send K elements)
-        for i in range(self.rows):
+        # Feed A matrix rows (M rows, K elements each)
+        for i in range(self.m_dim):
             for k in range(self.k_bound):
                 # Receive from input
                 stmts.append(DslxLet(
@@ -418,8 +437,8 @@ class SystolicArrayBuilder:
                     DslxChannelOp("send", [DslxVar("tok"), DslxVar(f"a_fifo_{i}_0_s"), DslxVar(f"a_{i}_{k}")])
                 ))
 
-        # Feed B matrix columns (for each col, send K elements)
-        for j in range(self.cols):
+        # Feed B matrix columns (N columns, K elements each)
+        for j in range(self.n_dim):
             for k in range(self.k_bound):
                 # Receive from input
                 stmts.append(DslxLet(
@@ -432,40 +451,40 @@ class SystolicArrayBuilder:
                     DslxChannelOp("send", [DslxVar("tok"), DslxVar(f"b_fifo_{j}_0_s"), DslxVar(f"b_{k}_{j}")])
                 ))
 
-        # Collect results from PEs
-        for i in range(self.rows):
-            for j in range(self.cols):
+        # Collect results from PEs (M×N result matrix)
+        for i in range(self.m_dim):
+            for j in range(self.n_dim):
                 stmts.append(DslxLet(
                     DslxTuple([DslxVar("tok"), DslxVar(f"c_{i}_{j}")]),
                     DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"c_out_{i}_{j}_r")])
                 ))
 
-        # Drain A_fifo right edge
-        for i in range(self.rows):
+        # Drain A_fifo right edge (M×N grid)
+        for i in range(self.m_dim):
             for k in range(self.k_bound):
                 stmts.append(DslxLet(
                     DslxTuple([DslxVar("tok"), DslxVar("_")]),
-                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"a_fifo_{i}_{self.cols}_r")])
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"a_fifo_{i}_{self.n_dim}_r")])
                 ))
 
-        # Drain B_fifo bottom edge
-        for j in range(self.cols):
+        # Drain B_fifo bottom edge (M×N grid)
+        for j in range(self.n_dim):
             for k in range(self.k_bound):
                 stmts.append(DslxLet(
                     DslxTuple([DslxVar("tok"), DslxVar("_")]),
-                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"b_fifo_{j}_{self.rows}_r")])
+                    DslxChannelOp("recv", [DslxVar("tok"), DslxVar(f"b_fifo_{j}_{self.m_dim}_r")])
                 ))
 
-        # Build result matrix
-        # DSLX arrays use [INNER][OUTER] convention, so [cols][rows] for row-major indexing
+        # Build result matrix (M×N dimensions)
+        # DSLX arrays use [INNER][OUTER] convention, so [n_dim][m_dim] for row-major indexing
         result_rows = []
-        for i in range(self.rows):
-            row_elements = [DslxVar(f"c_{i}_{j}") for j in range(self.cols)]
-            result_rows.append(DslxArrayLiteral(f"{self.elem_type}[{self.cols}]", row_elements))
+        for i in range(self.m_dim):
+            row_elements = [DslxVar(f"c_{i}_{j}") for j in range(self.n_dim)]
+            result_rows.append(DslxArrayLiteral(f"{self.elem_type}[{self.n_dim}]", row_elements))
 
         stmts.append(DslxLet(
             DslxVar("C"),
-            DslxArrayLiteral(f"{self.elem_type}[{self.cols}][{self.rows}]", result_rows)
+            DslxArrayLiteral(f"{self.elem_type}[{self.n_dim}][{self.m_dim}]", result_rows)
         ))
 
         # Send result

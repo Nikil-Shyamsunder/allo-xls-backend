@@ -4,12 +4,14 @@ from .extractors import (
     GridExtractor,
     FIFOAnalyzer,
     ConnectivityExtractor,
-    PEAnalyzer
+    PEAnalyzer,
+    MatrixDimensionExtractor
 )
 
 __all__ = [
     'GridExtractor',
     'FIFOAnalyzer',
     'ConnectivityExtractor',
-    'PEAnalyzer'
+    'PEAnalyzer',
+    'MatrixDimensionExtractor'
 ]

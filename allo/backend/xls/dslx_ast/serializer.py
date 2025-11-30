@@ -131,10 +131,18 @@ class DslxProcSerializer:
             self.indent_level -= 1
             lines.append(f"{self._indent()}) {{")
 
-        # Config body
+        # Config body - handle both DslxBlock and simple expressions
         self.indent_level += 1
-        body_str = self._serialize_expr(config.body)
-        lines.append(f"{self._indent()}{body_str}")
+        if isinstance(config.body, DslxBlock):
+            # Body is a block of statements
+            for stmt in config.body.stmts:
+                stmt_str = self._serialize_stmt(stmt)
+                if stmt_str:
+                    lines.append(f"{self._indent()}{stmt_str}")
+        else:
+            # Body is a single expression (backward compatibility)
+            body_str = self._serialize_expr(config.body)
+            lines.append(f"{self._indent()}{body_str}")
         self.indent_level -= 1
 
         lines.append(f"{self._indent()}}}")

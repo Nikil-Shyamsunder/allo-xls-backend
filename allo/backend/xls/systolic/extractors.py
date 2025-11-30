@@ -323,6 +323,54 @@ class ConnectivityExtractor:
         return 'unknown'
 
 
+class MatrixDimensionExtractor:
+    """Extract matrix dimensions (M, N, K) from top-level function signature."""
+
+    def __init__(self, top_func):
+        self.top_func = top_func
+
+    def extract(self):
+        """Extract M, N, K dimensions from function signature.
+
+        Returns:
+            dict with 'M', 'N', 'K' keys
+        """
+        try:
+            # Get function arguments
+            args = self.top_func.arguments
+            if len(args) < 2:
+                raise ValueError("Expected at least 2 arguments (A, B)")
+
+            # Get A matrix type (first argument)
+            a_type = args[0].type
+            if isinstance(a_type, MemRefType):
+                a_shape = list(a_type.shape)
+                M = a_shape[0] if len(a_shape) >= 2 else 1
+                K = a_shape[1] if len(a_shape) >= 2 else a_shape[0]
+            else:
+                raise ValueError(f"Expected MemRefType for arg 0, got {type(a_type)}")
+
+            # Get B matrix type (second argument)
+            b_type = args[1].type
+            if isinstance(b_type, MemRefType):
+                b_shape = list(b_type.shape)
+                # B is K×N, so N is the second dimension
+                N = b_shape[1] if len(b_shape) >= 2 else b_shape[0]
+            else:
+                raise ValueError(f"Expected MemRefType for arg 1, got {type(b_type)}")
+
+            return {
+                'M': M,
+                'N': N,
+                'K': K
+            }
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            # Return defaults
+            return {'M': 2, 'N': 2, 'K': 4}
+
+
 class PEAnalyzer:
     """Analyze PE kernel function structure."""
 
