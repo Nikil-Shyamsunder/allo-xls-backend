@@ -129,6 +129,6 @@ def node(state: State):
         f.write(parsed_response[0])
 
     return {
-        "prompt_token": prompt_token,
-        "completion_token": completion_token
+        "prompt_token": acc_p_token,
+        "completion_token": acc_c_token
     }
