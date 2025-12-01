@@ -25,9 +25,19 @@ def setup():
     with open("setup_config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    api_key = config["openai"]["api_key"]
-    os.environ['OPENAI_API_KEY'] = api_key
+    # get llm keys
+    openai_api_key = config["api_key"]["openai"]
+    os.environ['OPENAI_API_KEY'] = openai_api_key
+    
+    anthropic_api_key = config["api_key"]["anthropic"]
+    os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
+    # verify chat model
+    llm_model = config["model"]
+    from langchain.chat_models import init_chat_model
+    init_chat_model(llm_model)
+
+    # initialize other states
     input_file_path = os.path.join(LLM_DIR, "input", config["input"]["source"])
     instructions_file_path = os.path.join(LLM_DIR, "input", config["input"]["additional_instructions"])
     basename = Path(input_file_path).stem

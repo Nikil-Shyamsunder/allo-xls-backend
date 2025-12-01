@@ -1,8 +1,9 @@
-openai:
-  api_key: 
-  model: gpt-4o-mini
+model: claude-sonnet-4-5
+api_key:
+  openai: 
+  anthropic:
 input:
-  language: dls # dls or mlir
+  language: dsl # dsl or mlir
   source: example_gemm.py # file path relative to ./input directory
   additional_instructions: example_gemm.txt 
 output:

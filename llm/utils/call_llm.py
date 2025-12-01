@@ -9,7 +9,7 @@ def llm_model():
     with open("setup_config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    model = config["openai"]["model"]
+    model = config["model"]
     return model
 
 def call_llm(system_message: str, user_message: str) -> dict:
