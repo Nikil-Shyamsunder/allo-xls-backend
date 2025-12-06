@@ -2,6 +2,7 @@ import yaml, os, shutil
 import subprocess
 from pathlib import Path
 from  workflows.graph import workflow
+import argparse
 
 # importing module
 import logging
@@ -13,6 +14,13 @@ logging.basicConfig(filename="output.log",
                     level=logging.INFO)
 
 LLM_DIR = os.getcwd()
+
+parser = argparse.ArgumentParser(description="An llm util that lowers xls code to dslx")
+parser.add_argument("--source",         "-s", type=str, help="Source xls file.")
+parser.add_argument("--instruction",    "-v", nargs='+', help="Additional.")
+parser.add_argument("--verbose",        "-v", action="store_true", help="Enable verbose output.")
+
+args = parser.parse_args()
 
 
 def setup():

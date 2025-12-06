@@ -14,14 +14,19 @@ def llm_model():
 
 def call_llm(system_message: str, user_message: str) -> dict:
     messages = [SystemMessage(content=system_message), HumanMessage(content=user_message)]
-    llm = init_chat_model(llm_model())
+    model = llm_model()
+    llm = init_chat_model(model)
     
     for _ in range(10):
         try:
             response = llm.invoke(messages)
             content = response.content
-            prompt_tokens = response.response_metadata['token_usage']['prompt_tokens']
-            completion_tokens = response.response_metadata['token_usage']['completion_tokens']
+            if "gpt" in model:
+                prompt_tokens = response.response_metadata['token_usage']['prompt_tokens']
+                completion_tokens = response.response_metadata['token_usage']['completion_tokens']
+            elif "claude" in model:
+                prompt_tokens = response.response_metadata['usage']['input_tokens']
+                completion_tokens = response.response_metadata['usage']['output_tokens']
             break
         except Exception as e:
             print(f"ERROR: LLM query failed, retrying in 20 seconds: {e}")

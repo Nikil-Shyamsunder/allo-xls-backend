@@ -52,3 +52,10 @@ Documentation for both allo and DSLX code
 Example code of allo and dslx separately
 ### Few shot examples (2)
 Example of a lowering
+
+## RAG
+1. Generate query
+1. Calls retrieval tool
+2. Check relavence -> yes or no
+3. Rewrite
+4. generate...
