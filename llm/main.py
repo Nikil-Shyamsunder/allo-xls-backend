@@ -29,8 +29,8 @@ def setup():
     openai_api_key = config["api_key"]["openai"]
     os.environ['OPENAI_API_KEY'] = openai_api_key
     
-    anthropic_api_key = config["api_key"]["anthropic"]
-    os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
+    # anthropic_api_key = config["api_key"]["anthropic"]
+    # os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
     # verify chat model
     llm_model = config["model"]
@@ -39,7 +39,7 @@ def setup():
 
     # initialize other states
     input_file_path = os.path.join(LLM_DIR, "input", config["input"]["source"])
-    instructions_file_path = os.path.join(LLM_DIR, "input", config["input"]["additional_instructions"])
+    instructions_file_path = [os.path.join(LLM_DIR, "input", path) for path in config["input"]["additional_instructions"]]
     basename = Path(input_file_path).stem
     gen_idx = 0
     prompt_token = 0

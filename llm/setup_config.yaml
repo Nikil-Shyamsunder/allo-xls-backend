@@ -1,10 +1,10 @@
-model: claude-sonnet-4-5
+model: gpt-5-nano
 api_key:
   openai: 
   anthropic:
 input:
   language: dsl # dsl or mlir
   source: example_gemm.py # file path relative to ./input directory
-  additional_instructions: example_gemm.txt 
+  additional_instructions: [../documents/dslx_reference.md] #example_gemm.txt 
 output:
   language: dslx # dslx or i forgot what the other one was

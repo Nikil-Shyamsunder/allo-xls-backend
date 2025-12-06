@@ -69,10 +69,11 @@ def node(state: State):
     instructions_suffix = ""
     if instructions_file_path is not None:
         try:
-            with open(instructions_file_path, "r") as f:
-                additional_instructions = f.read()
-            if additional_instructions.strip() != "":
-                instructions_suffix = additional_instructions_suffix.format(additional_instructions=additional_instructions)
+            for path in instructions_file_path:
+                with open(path, "r") as f:
+                    additional_instructions = f.read()
+                if additional_instructions.strip() != "":
+                    instructions_suffix += additional_instructions_suffix.format(additional_instructions=additional_instructions)
         except FileNotFoundError as e:
             logger.warning(f"instructions_file_path: {instructions_file_path} not found. No instructions given")
 
