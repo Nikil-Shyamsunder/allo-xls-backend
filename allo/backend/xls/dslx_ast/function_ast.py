@@ -23,6 +23,12 @@ class DslxBinOp(DslxNode):
         self.rhs = rhs
 
 
+class DslxFuncCall(DslxNode):
+    def __init__(self, func_name, args):
+        self.func_name = func_name
+        self.args = args  # List of argument expressions
+
+
 class DslxLoad(DslxNode):
     def __init__(self, buffer_name, index_expr):
         self.buffer_name = buffer_name
