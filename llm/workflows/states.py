@@ -9,6 +9,12 @@ from operator import add, concat
 class State(TypedDict):
 
     # ----------- initial state and user inputs -----------
+    # model
+    model: str
+
+    # num_itr
+    num_iter: int
+    
     # input files
     input_file_path: str
     instructions_file_path: str
@@ -60,7 +66,7 @@ class State(TypedDict):
     # outputs
     # - gen_idx
     loopback_context: str
-    acc_output: Annotated[List, concat] # accumulated output for all rounds
+    acc_output: List
 
     # ----------- done -----------
     # inputs

@@ -12,9 +12,9 @@ def llm_model():
     model = config["model"]
     return model
 
-def call_llm(system_message: str, user_message: str) -> dict:
+def call_llm(model, system_message: str, user_message: str) -> dict:
     messages = [SystemMessage(content=system_message), HumanMessage(content=user_message)]
-    model = llm_model()
+    # model = llm_model()
     llm = init_chat_model(model)
     
     for _ in range(10):

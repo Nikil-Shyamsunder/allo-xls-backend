@@ -50,7 +50,7 @@ def node(state: State):
     return {
         "gen_idx": 1,
         "loopback_context": loopback_context,
-        "acc_output": output_summary
+        "acc_output": acc_output
     }
 
 def format_context(acc_output: List[Dict]):

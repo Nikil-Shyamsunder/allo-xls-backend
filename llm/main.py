@@ -1,29 +1,32 @@
-import yaml, os, shutil
+import yaml, os, shutil, sys
 import subprocess
 from pathlib import Path
 from  workflows.graph import workflow
+
+import logging
 import argparse
 
-# importing module
-import logging
-
 # Create and configure logger
-logging.basicConfig(filename="output.log",
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    filemode='w',
-                    level=logging.INFO)
+logging.basicConfig(
+    # filename="output.log",
+    handlers=[
+        logging.FileHandler("output.log", mode='w'), # Log to a file
+        logging.StreamHandler(sys.stdout)            # Print to console
+    ],
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO)
 
-LLM_DIR = os.getcwd()
+LLM_DIR = os.path.dirname(os.path.abspath(__file__))
 
-parser = argparse.ArgumentParser(description="An llm util that lowers xls code to dslx")
-parser.add_argument("--source",         "-s", type=str, help="Source xls file.")
-parser.add_argument("--instruction",    "-v", nargs='+', help="Additional.")
-parser.add_argument("--verbose",        "-v", action="store_true", help="Enable verbose output.")
+parser = argparse.ArgumentParser(description="An llm tool that lowers xls to dslx.")
+
+parser.add_argument(
+    "--input_file", default=None, help="The input xls file to, must be in the 'input' directory."
+)
 
 args = parser.parse_args()
 
-
-def setup():
+def setup(source_file):
     output_dir = os.path.join(LLM_DIR, "build")
 
     if os.path.exists(output_dir):
@@ -35,18 +38,23 @@ def setup():
 
     # get llm keys
     openai_api_key = config["api_key"]["openai"]
-    os.environ['OPENAI_API_KEY'] = openai_api_key
+    if openai_api_key is not None:
+        os.environ['OPENAI_API_KEY'] = openai_api_key
     
-    # anthropic_api_key = config["api_key"]["anthropic"]
-    # os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
+    anthropic_api_key = config["api_key"]["anthropic"]
+    if anthropic_api_key is not None:
+        os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
     # verify chat model
     llm_model = config["model"]
     from langchain.chat_models import init_chat_model
     init_chat_model(llm_model)
 
+    # get maximum number of generations
+    num_iter = config["num_iter"]
+
     # initialize other states
-    input_file_path = os.path.join(LLM_DIR, "input", config["input"]["source"])
+    input_file_path = os.path.join(LLM_DIR, "input", source_file)
     instructions_file_path = [os.path.join(LLM_DIR, "input", path) for path in config["input"]["additional_instructions"]]
     basename = Path(input_file_path).stem
     gen_idx = 0
@@ -54,6 +62,8 @@ def setup():
     completion_token = 0
 
     return {
+        "model": llm_model,
+        "num_iter": num_iter,
         "input_file_path": input_file_path, 
         "instructions_file_path": instructions_file_path, 
         "output_dir": output_dir, 
@@ -65,8 +75,22 @@ def setup():
 
 
 def main():
-    initialization = setup()
-    workflow.invoke(initialization, {"recursion_limit": 35})
+    with open("setup_config.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    if args.input_file is None:
+        # iterate through the input files
+        source_files = config["input"]["source"]
+    else:
+        source_files = [args.input_file]
+    
+    # get number of recursions
+    recursion_limit = config["num_iter"] * 3 + 5
+
+    for source_file in source_files:
+        # initialize
+        initialization = setup(source_file)
+        workflow.invoke(initialization, {"recursion_limit": recursion_limit})
 
 if __name__ == "__main__":
     main()

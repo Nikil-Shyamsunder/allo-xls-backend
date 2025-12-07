@@ -45,6 +45,7 @@ def node(state: State):
     loopback_context = state.get("loopback_context", None)
     basename = state.get("basename", None)
     output_dir = state.get("output_dir", None)
+    model = state.get("model", None)
 
     # assert input preconditions
     try:
@@ -52,6 +53,7 @@ def node(state: State):
         assert os.path.isfile(input_file_path), f"input_file_path must exist: {input_file_path}"
         assert basename is not None, "basename cannot be None"
         assert output_dir is not None, "output_dir cannot be None"
+        assert model is not None, "model cannot be None"
         assert os.path.isdir(output_dir), f"output_dir must exist: {output_dir}"
     except AssertionError as e:
         logger.error(e)
@@ -96,7 +98,7 @@ def node(state: State):
     while retry and retry_idx < 10:
         try:
             # call llm
-            response = call_llm(system_message, user_msg)
+            response = call_llm(model, system_message, user_msg)
             llm_response = response["llm_response"]
             prompt_token = response["prompt_token"]
             completion_token = response["completion_token"]

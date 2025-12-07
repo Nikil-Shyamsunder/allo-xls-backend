@@ -1,0 +1,3 @@
+num_trials: 20
+source: [example_gemm.py]
+test: [example_gemm_test.x]
