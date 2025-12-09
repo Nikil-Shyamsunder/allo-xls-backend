@@ -204,9 +204,9 @@ def main():
 
     num_trials = config["num_trials"]
     sources = config["source"]
-    tests = config["test"]
+    test = config["test"]
 
-    assert len(sources) == len(tests), "must have same number of sources and tests"
+    #assert len(sources) == len(tests), "must have same number of sources and tests"
 
     # Get the path to the summary files
     agent_summary = os.path.join(exp_dir, "agent_summary.log")
