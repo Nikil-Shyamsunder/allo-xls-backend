@@ -1,7 +1,11 @@
 """Generic proc builders using AST representation.
 
-These builders create DSLX proc AST nodes that can be serialized to text.
-This approach is more flexible and composable than string-based generation.
+DEPRECATED: This module uses individual channels which fail XLS compilation.
+    Use xls_systolic_builder.XLSSystolicArrayBuilder instead.
+
+REASON FOR DEPRECATION:
+- Individual channel architecture (`chan<u32>` per connection) fails XLS channel legalization
+- Replaced by array channel architecture (`chan<u32>[M][N]`) in xls_systolic_builder.py
 """
 
 from ..dslx_ast.proc_ast import *
@@ -236,7 +240,7 @@ class GridChannelNetworkBuilder:
             for j in range(self.cols + 1):
                 label = f"{prefix}_{i}_{j}"
                 self.channels.append(
-                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label)
+                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label, fifo_depth="u32:1")
                 )
         return self
 
@@ -246,7 +250,7 @@ class GridChannelNetworkBuilder:
             for i in range(self.rows + 1):
                 label = f"{prefix}_{j}_{i}"
                 self.channels.append(
-                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label)
+                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label, fifo_depth="u32:1")
                 )
         return self
 
@@ -256,7 +260,7 @@ class GridChannelNetworkBuilder:
             for j in range(self.cols):
                 label = f"{prefix}_{i}_{j}"
                 self.channels.append(
-                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label)
+                    DslxChannelCreate(f"{label}_s", f"{label}_r", self.elem_type, label, fifo_depth="u32:1")
                 )
         return self
 
