@@ -1,4 +1,4 @@
-"""MLIR to DSLX lowering implementation."""
+"""MLIR to DSLX function lowering implementation."""
 
 from allo._mlir.ir import Operation, MemRefType
 from allo._mlir.ir import IntegerAttr, FloatAttr, DenseElementsAttr
@@ -8,8 +8,8 @@ from allo._mlir.dialects import arith as arith_d
 from allo._mlir.dialects import linalg as linalg_d
 from allo._mlir.dialects import memref as memref_d
 
-from .codegen_context import CodegenContext
-from .dslx_nodes import (
+from .shared.codegen_context import CodegenContext
+from .shared.dslx_nodes import (
     DslxVar, DslxConst, DslxBinOp, DslxLoad, DslxStore,
     DslxFor, DslxLet, DslxArrayInit
 )
@@ -26,25 +26,9 @@ class MlirToDslxLowerer:
             if isinstance(arg.type, MemRefType):
                 name = f"arg{i}"
                 shape = list(arg.type.shape)
-                elem_type = arg.type.element_type
-                elem_type_str = str(elem_type)
-
-                # Determine DSLX type
-                if 'f32' in elem_type_str:
-                    dslx_type = "F32"
-                    self.ctx.is_float = True
-                elif 'f64' in elem_type_str:
-                    dslx_type = "F64"
-                    self.ctx.is_float = True
-                elif 'i32' in elem_type_str:
-                    dslx_type = "u32"
-                else:
-                    dslx_type = "u32"
-
                 self.ctx.memref_shapes[name] = shape
-                self.ctx.memref_types[name] = dslx_type
                 self.ctx.bind(arg, DslxVar(name))
-                type_str = dslx_type + "".join(f"[{dim}]" for dim in shape)
+                type_str = "u32" + "".join(f"[{dim}]" for dim in shape)
                 params.append((name, type_str))
 
         for op in self.func_op.body.blocks[0].operations:
@@ -61,14 +45,14 @@ class MlirToDslxLowerer:
         return self.emit_dslx(params, return_expr)
 
     def lower_op(self, op: Operation):
-        op_name = op.operation.name if hasattr(op, 'operation') else str(type(op).__name__)
-
         if isinstance(op, affine_d.AffineForOp):
             self.lower_for(op)
         elif isinstance(op, affine_d.AffineLoadOp):
             self.lower_load(op)
         elif isinstance(op, affine_d.AffineStoreOp):
             self.lower_store(op)
+        elif isinstance(op, affine_d.AffineApplyOp):
+            self.lower_affine_apply(op)
         elif isinstance(op, arith_d.ConstantOp):
             self.lower_constant(op)
         elif isinstance(op, arith_d.AddIOp):
@@ -87,15 +71,8 @@ class MlirToDslxLowerer:
             return
         elif isinstance(op, func_d.ReturnOp):
             return
-        # Float operations
-        elif 'addf' in op_name:
-            self.lower_addf(op)
-        elif 'mulf' in op_name:
-            self.lower_mulf(op)
-        elif 'sitofp' in op_name:
-            self.lower_sitofp(op)
         else:
-            print(f"Warning: unhandled op {op_name}")
+            print("Warning: unhandled op", op.operation.name)
 
     def lower_constant(self, op):
         attr = op.value
@@ -104,18 +81,7 @@ class MlirToDslxLowerer:
         elif isinstance(attr, DenseElementsAttr):
             raw = list(attr)[0]
         else:
-            # Try to parse string representation
-            attr_str = str(attr).split(":")[0].strip()
-            try:
-                # Try int first
-                raw = int(attr_str)
-            except ValueError:
-                try:
-                    # Try float
-                    raw = float(attr_str)
-                except ValueError:
-                    # Default to 0
-                    raw = 0
+            raw = int(str(attr).split(":")[0])
 
         node = DslxConst(raw)
         self.ctx.bind(op.result, node)
@@ -155,29 +121,77 @@ class MlirToDslxLowerer:
         operand = self.ctx.lookup(op.operands[0])
         self.ctx.bind(op.result, operand)
 
-    def lower_addf(self, op):
-        """Lower floating point addition."""
-        from .dslx_nodes import DslxFuncCall
-        lhs = self.ctx.lookup(op.lhs)
-        rhs = self.ctx.lookup(op.rhs)
-        # Use float32::add for DSLX
-        node = DslxFuncCall("float32::add", [lhs, rhs])
-        self.ctx.bind(op.result, node)
+    def lower_affine_apply(self, op: affine_d.AffineApplyOp):
+        """Lower affine.apply operations by evaluating the affine expression."""
+        # Get the affine map
+        aff_map = op.map.value
 
-    def lower_mulf(self, op):
-        """Lower floating point multiplication."""
-        from .dslx_nodes import DslxFuncCall
-        lhs = self.ctx.lookup(op.lhs)
-        rhs = self.ctx.lookup(op.rhs)
-        # Use float32::mul for DSLX
-        node = DslxFuncCall("float32::mul", [lhs, rhs])
-        self.ctx.bind(op.result, node)
+        # Get operands (the values being substituted into the affine expression)
+        operands = [self.ctx.lookup(operand) for operand in op.mapOperands]
 
-    def lower_sitofp(self, op):
-        """Lower signed int to float conversion."""
-        operand = self.ctx.lookup(op.operands[0])
-        # For now, just pass through - XLS will handle conversion
-        self.ctx.bind(op.result, operand)
+        # Evaluate the affine expression (assuming single result)
+        if len(aff_map.results) != 1:
+            raise RuntimeError(f"Expected single result in affine map, got {len(aff_map.results)}")
+
+        expr = aff_map.results[0]
+        result_node = self._eval_affine_expr(expr, operands)
+
+        # Bind the result
+        self.ctx.bind(op.result, result_node)
+
+    def _eval_affine_expr(self, expr, operands):
+        """Recursively evaluate an affine expression tree."""
+        # Get the expression kind and evaluate accordingly
+        expr_str = str(expr)
+
+        # Try to parse the expression string (e.g., "d0 + d1 * 8")
+        # This is a simplified approach - handle common patterns
+
+        # Check if it's a dimension reference (d0, d1, etc.)
+        if expr_str.startswith('d'):
+            try:
+                dim_num = int(expr_str[1:])
+                return operands[dim_num]
+            except (ValueError, IndexError):
+                pass
+
+        # Check if it's a constant
+        try:
+            const_val = int(expr_str)
+            return DslxConst(const_val)
+        except ValueError:
+            pass
+
+        # Try to get the expression kind via attributes
+        if hasattr(expr, 'kind'):
+            kind = str(expr.kind)
+
+            if 'Add' in kind:
+                lhs = self._eval_affine_expr(expr.lhs if hasattr(expr, 'lhs') else operands[0], operands)
+                rhs = self._eval_affine_expr(expr.rhs if hasattr(expr, 'rhs') else operands[1], operands)
+                return DslxBinOp("+", lhs, rhs)
+            elif 'Mul' in kind:
+                lhs = self._eval_affine_expr(expr.lhs if hasattr(expr, 'lhs') else operands[0], operands)
+                rhs = self._eval_affine_expr(expr.rhs if hasattr(expr, 'rhs') else operands[1], operands)
+                return DslxBinOp("*", lhs, rhs)
+
+        # Fallback: try to parse binary operations from children
+        if hasattr(expr, '__iter__') and not isinstance(expr, str):
+            children = list(expr)
+            if len(children) == 2:
+                lhs = self._eval_affine_expr(children[0], operands)
+                rhs = self._eval_affine_expr(children[1], operands)
+                # Try to infer operation from string representation
+                if '+' in expr_str:
+                    return DslxBinOp("+", lhs, rhs)
+                elif '*' in expr_str or 'mul' in expr_str.lower():
+                    return DslxBinOp("*", lhs, rhs)
+
+        # Final fallback: return the first operand (for simple forwarding)
+        if operands:
+            return operands[0]
+
+        raise RuntimeError(f"Cannot evaluate affine expression: {expr} (type: {type(expr)})")
 
     def lower_load(self, op: affine_d.AffineLoadOp):
         base = op.memref
@@ -287,25 +301,17 @@ class MlirToDslxLowerer:
             return index_nodes
 
     def emit_dslx(self, params, return_expr):
-        out = []
-
-        # Add float import if needed
-        if self.ctx.is_float:
-            out.append("import float32;")
-            out.append("type F32 = float32::F32;")
-            out.append("")
+        out = ["", ""]
 
         param_list = ", ".join(f"{name}: {typ}" for name, typ in params)
 
         if return_expr in self.ctx.memref_shapes:
             shape = self.ctx.memref_shapes[return_expr]
-            ret_type_base = self.ctx.memref_types.get(return_expr, "u32")
-            ret_type = ret_type_base + "".join(f"[{dim}]" for dim in shape)
+            ret_type = "u32" + "".join(f"[{dim}]" for dim in shape)
         else:
-            ret_type = "F32" if self.ctx.is_float else "u32"
+            ret_type = "u32[32][32]"
 
-        func_name = self.func_op.name.value if hasattr(self.func_op, 'name') else "pe_func"
-        out.append(f"fn {func_name}({param_list}) -> {ret_type} {{")
+        out.append(f"fn gemm({param_list}) -> {ret_type} {{")
 
         for stmt in self.ctx.dslx_stmts:
             out.extend(self.emit_stmt(stmt, indent=1))
@@ -316,24 +322,10 @@ class MlirToDslxLowerer:
         return "\n".join(out)
 
     def emit_expr(self, node):
-        from .dslx_nodes import DslxFuncCall
-
         if isinstance(node, DslxConst):
-            # Use appropriate type prefix
-            if self.ctx.is_float:
-                # For floats, use float32::zero or literal
-                if node.value == 0 or node.value == 0.0:
-                    return "float32::zero(u1:0)"
-                else:
-                    return f"float32::from_float({node.value})"
-            else:
-                return f"u32:{node.value}"
+            return f"u32:{node.value}"
         if isinstance(node, DslxVar):
             return node.name
-        if isinstance(node, DslxFuncCall):
-            # Emit function call: func_name(arg1, arg2, ...)
-            args_str = ", ".join(self.emit_expr(arg) for arg in node.args)
-            return f"{node.func_name}({args_str})"
         if isinstance(node, DslxBinOp):
             return f"({self.emit_expr(node.lhs)} {node.op} {self.emit_expr(node.rhs)})"
         if isinstance(node, DslxLoad):
@@ -349,13 +341,11 @@ class MlirToDslxLowerer:
                 # 1D array: u32[N]:[elem, elem, ...]
                 elem_str = self.emit_expr(node.elem_expr)
                 elements = ", ".join([elem_str] * node.shape[0])
-                type_str = self.ctx.memref_types.get(node.buffer_name if hasattr(node, 'buffer_name') else None, "u32")
-                return f"{type_str}[{node.shape[0]}]:[{elements}]"
+                return f"u32[{node.shape[0]}]:[{elements}]"
             elif len(node.shape) == 2:
                 # 2D array: u32[INNER][OUTER]:[[elem, ...], ...]
                 elem_str = self.emit_expr(node.elem_expr)
-                type_str = self.ctx.memref_types.get(node.buffer_name if hasattr(node, 'buffer_name') else None, "u32")
-                return f"{type_str}[{node.shape[1]}][{node.shape[0]}]:[[{elem_str}, ...], ...]"
+                return f"u32[{node.shape[1]}][{node.shape[0]}]:[[{elem_str}, ...], ...]"
             else:
                 return self.emit_expr(node.elem_expr)
         if isinstance(node, str):
