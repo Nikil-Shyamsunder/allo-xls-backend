@@ -34,12 +34,19 @@ class DslxTypeAlias(DslxProcNode):
 
 
 class DslxChannelDecl(DslxProcNode):
-    """Represents a channel declaration in a proc."""
+    """Represents a channel declaration in a proc.
 
-    def __init__(self, name, chan_type, direction):
+    Examples:
+        a_in: chan<F32> in
+        activations: chan<F32>[ROWS] in
+        from_wests: chan<F32>[COLS + u32:1][ROWS] in
+    """
+
+    def __init__(self, name, chan_type, direction, array_dims=None):
         self.name = name  # e.g., "a_in"
         self.chan_type = chan_type  # e.g., "F32"
         self.direction = direction  # "in" or "out"
+        self.array_dims = array_dims or []  # e.g., ["ROWS"], ["COLS", "ROWS"]
 
 
 class DslxParam(DslxProcNode):
@@ -102,6 +109,14 @@ class DslxArrayLiteral(DslxExpr):
         self.elements = elements
 
 
+class DslxArrayIndex(DslxExpr):
+    """Represents array indexing: arr[i] or arr[i][j]."""
+
+    def __init__(self, array, indices):
+        self.array = array  # DslxVar or DslxExpr
+        self.indices = indices  # List of DslxExpr (can be nested)
+
+
 class DslxStmt(DslxProcNode):
     """Base class for statements."""
     pass
@@ -133,13 +148,22 @@ class DslxChannelOp(DslxExpr):
 
 
 class DslxChannelCreate(DslxStmt):
-    """Represents channel creation (let (s, r) = chan<T>("name"))."""
+    """Represents channel creation.
 
-    def __init__(self, sender_name, receiver_name, chan_type, label):
+    Examples:
+        let (s, r) = chan<T>("name")
+        let (s, r) = chan<T, u32:1>("name")  # with FIFO depth
+        let (to_easts, from_wests) = chan<F32>[COLS + u32:1][ROWS]("east_west")
+        let (to_easts, from_wests) = chan<F32, u32:1>[COLS + u32:1][ROWS]("east_west")  # with FIFO
+    """
+
+    def __init__(self, sender_name, receiver_name, chan_type, label, array_dims=None, fifo_depth=None):
         self.sender_name = sender_name
         self.receiver_name = receiver_name
         self.chan_type = chan_type
         self.label = label
+        self.array_dims = array_dims or []  # e.g., ["COLS + u32:1", "ROWS"]
+        self.fifo_depth = fifo_depth  # e.g., "u32:1" for FIFO depth of 1
 
 
 class DslxSpawn(DslxStmt):
@@ -149,6 +173,34 @@ class DslxSpawn(DslxStmt):
         self.proc_name = proc_name
         self.type_params = type_params  # List of DslxExpr
         self.args = args  # List of DslxExpr
+
+
+class DslxUnrollFor(DslxStmt):
+    """Represents an unroll_for! loop.
+
+    Example:
+        unroll_for! (row, tok): (u32, token) in u32:0..ROWS {
+            ...
+        }(tok)
+    """
+
+    def __init__(self, loop_vars, range_expr, body, init_expr):
+        self.loop_vars = loop_vars  # List of (name, type) tuples
+        self.range_expr = range_expr  # e.g., "u32:0..ROWS"
+        self.body = body  # DslxBlock or list of statements
+        self.init_expr = init_expr  # Initial value expression
+
+
+class DslxConst(DslxStmt):
+    """Represents a const declaration.
+
+    Example:
+        const ACTIVATIONS_COL = u32:0;
+    """
+
+    def __init__(self, name, value):
+        self.name = name
+        self.value = value  # DslxExpr
 
 
 class DslxBlock(DslxProcNode):
@@ -162,7 +214,7 @@ class DslxConfigFunc(DslxProcNode):
     """Represents a proc config function."""
 
     def __init__(self, params, body):
-        self.params = params  # List of (name, type, direction) tuples
+        self.params = params  # List of (name, type, direction) or (name, type, direction, array_dims) tuples
         self.body = body  # DslxBlock or DslxExpr (typically tuple return)
 
 

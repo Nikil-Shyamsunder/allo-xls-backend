@@ -84,7 +84,12 @@ class DslxProcSerializer:
 
         # Channel declarations
         for chan in proc.channels:
-            chan_str = f"{self._indent()}{chan.name}: chan<{chan.chan_type}> {chan.direction};"
+            # Handle array channel declarations
+            if chan.array_dims:
+                dims_str = "".join(f"[{dim}]" for dim in chan.array_dims)
+                chan_str = f"{self._indent()}{chan.name}: chan<{chan.chan_type}>{dims_str} {chan.direction};"
+            else:
+                chan_str = f"{self._indent()}{chan.name}: chan<{chan.chan_type}> {chan.direction};"
             lines.append(chan_str)
 
         if proc.channels:
@@ -115,8 +120,14 @@ class DslxProcSerializer:
 
         # Config header
         params_strs = []
-        for name, chan_type, direction in config.params:
-            params_strs.append(f"{name}: chan<{chan_type}> {direction}")
+        for param in config.params:
+            if len(param) == 4:
+                name, chan_type, direction, array_dims = param
+                dims_str = "".join(f"[{dim}]" for dim in array_dims)
+                params_strs.append(f"{name}: chan<{chan_type}>{dims_str} {direction}")
+            else:
+                name, chan_type, direction = param
+                params_strs.append(f"{name}: chan<{chan_type}> {direction}")
 
         # Split into multiple lines if too long
         if len(params_strs) <= 3:
@@ -210,7 +221,9 @@ class DslxProcSerializer:
                 else:
                     elements.append(self._serialize_expr(e))
             elements_str = ", ".join(elements)
-            return f"{expr.elem_type}:[{elements_str}]"
+            # Only add type prefix if elem_type is set and this is the outermost array
+            # For now, never add type prefix for array literals
+            return f"[{elements_str}]"
 
         elif isinstance(expr, DslxChannelOp):
             args_str = ", ".join(self._serialize_expr(arg) for arg in expr.args)
@@ -218,9 +231,39 @@ class DslxProcSerializer:
 
         elif isinstance(expr, DslxIf):
             cond = self._serialize_expr(expr.condition)
-            then_expr = self._serialize_expr(expr.then_expr)
-            else_expr = self._serialize_expr(expr.else_expr)
-            return f"if {cond} {{\n{self._indent()}  {then_expr}\n{self._indent()}}} else {{\n{self._indent()}  {else_expr}\n{self._indent()}}}"
+
+            # Handle then branch - could be Block or simple expression
+            if isinstance(expr.then_expr, DslxBlock):
+                then_lines = []
+                self.indent_level += 1
+                for stmt in expr.then_expr.stmts:
+                    stmt_str = self._serialize_stmt(stmt)
+                    if stmt_str:
+                        then_lines.append(f"{self._indent()}{stmt_str}")
+                self.indent_level -= 1
+                then_body = "\n".join(then_lines)
+            else:
+                then_body = f"{self._indent()}  {self._serialize_expr(expr.then_expr)}"
+
+            # Handle else branch - could be Block or simple expression
+            if isinstance(expr.else_expr, DslxBlock):
+                else_lines = []
+                self.indent_level += 1
+                for stmt in expr.else_expr.stmts:
+                    stmt_str = self._serialize_stmt(stmt)
+                    if stmt_str:
+                        else_lines.append(f"{self._indent()}{stmt_str}")
+                self.indent_level -= 1
+                else_body = "\n".join(else_lines)
+            else:
+                else_body = f"{self._indent()}  {self._serialize_expr(expr.else_expr)}"
+
+            return f"if {cond} {{\n{then_body}\n{self._indent()}}} else {{\n{else_body}\n{self._indent()}}}"
+
+        elif isinstance(expr, DslxArrayIndex):
+            array_str = self._serialize_expr(expr.array)
+            indices_str = "][".join(self._serialize_expr(idx) for idx in expr.indices)
+            return f"{array_str}[{indices_str}]"
 
         else:
             return str(expr)
@@ -233,12 +276,55 @@ class DslxProcSerializer:
             return f"let {pattern} = {expr};"
 
         elif isinstance(stmt, DslxChannelCreate):
-            return f"let ({stmt.sender_name}, {stmt.receiver_name}) = chan<{stmt.chan_type}>(\"{stmt.label}\");"
+            # Build type string with optional FIFO depth
+            type_str = stmt.chan_type
+            if stmt.fifo_depth:
+                type_str = f"{stmt.chan_type}, {stmt.fifo_depth}"
+
+            # Handle array channel creation
+            if stmt.array_dims:
+                dims_str = "".join(f"[{dim}]" for dim in stmt.array_dims)
+                return f"let ({stmt.sender_name}, {stmt.receiver_name}) = chan<{type_str}>{dims_str}(\"{stmt.label}\");"
+            else:
+                return f"let ({stmt.sender_name}, {stmt.receiver_name}) = chan<{type_str}>(\"{stmt.label}\");"
 
         elif isinstance(stmt, DslxSpawn):
-            type_params_str = ", ".join(self._serialize_expr(tp) for tp in stmt.type_params)
             args_str = ", ".join(self._serialize_expr(arg) for arg in stmt.args)
-            return f"spawn {stmt.proc_name}<{type_params_str}>({args_str});"
+            if stmt.type_params:
+                type_params_str = ", ".join(self._serialize_expr(tp) for tp in stmt.type_params)
+                return f"spawn {stmt.proc_name}<{type_params_str}>({args_str});"
+            else:
+                return f"spawn {stmt.proc_name}({args_str});"
+
+        elif isinstance(stmt, DslxUnrollFor):
+            lines = []
+            # unroll_for! (row, tok): (u32, token) in u32:0..ROWS {
+            vars_str = ", ".join(f"{name}" for name, _ in stmt.loop_vars)
+            types_str = ", ".join(f"{typ}" for _, typ in stmt.loop_vars)
+            lines.append(f"unroll_for! ({vars_str}): ({types_str}) in {stmt.range_expr} {{")
+
+            # Body
+            self.indent_level += 1
+            if isinstance(stmt.body, list):
+                for body_stmt in stmt.body:
+                    stmt_str = self._serialize_stmt(body_stmt)
+                    if stmt_str:
+                        lines.append(f"{self._indent()}{stmt_str}")
+            elif isinstance(stmt.body, DslxBlock):
+                for body_stmt in stmt.body.stmts:
+                    stmt_str = self._serialize_stmt(body_stmt)
+                    if stmt_str:
+                        lines.append(f"{self._indent()}{stmt_str}")
+            self.indent_level -= 1
+
+            # Closing with init expression
+            init_str = self._serialize_expr(stmt.init_expr)
+            lines.append(f"}}({init_str});")
+            return "\n".join(lines)
+
+        elif isinstance(stmt, DslxConst):
+            value_str = self._serialize_expr(stmt.value)
+            return f"const {stmt.name} = {value_str};"
 
         elif isinstance(stmt, DslxExpr):
             # Statement that's just an expression
