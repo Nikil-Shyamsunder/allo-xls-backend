@@ -8,13 +8,13 @@ through the following pipeline:
 
 Usage:
   # From a file:
-  ./mlir_to_verilog.py input.mlir -o output_dir
+  ./mlir_to_verilog_proc.py input.mlir -o output_dir
 
   # From stdin:
-  cat input.mlir | ./mlir_to_verilog.py --stdin -o output_dir
+  cat input.mlir | ./mlir_to_verilog_proc.py --stdin -o output_dir
 
   # Keep intermediate files:
-  ./mlir_to_verilog.py input.mlir -o output_dir --keep-intermediates
+  ./mlir_to_verilog_proc.py input.mlir -o output_dir --keep-intermediates
 """
 
 import sys
