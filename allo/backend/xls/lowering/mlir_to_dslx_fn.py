@@ -127,7 +127,7 @@ class MlirToDslxLowerer:
         aff_map = op.map.value
 
         # Get operands (the values being substituted into the affine expression)
-        operands = [self.ctx.lookup(operand) for operand in op.mapOperands]
+        operands = [self.ctx.lookup(operand) for operand in op.operands]
 
         # Evaluate the affine expression (assuming single result)
         if len(aff_map.results) != 1:
@@ -140,18 +140,19 @@ class MlirToDslxLowerer:
         self.ctx.bind(op.result, result_node)
 
     def _eval_affine_expr(self, expr, operands):
-        """Recursively evaluate an affine expression tree."""
-        # Get the expression kind and evaluate accordingly
-        expr_str = str(expr)
+        """Recursively evaluate an affine expression tree.
 
-        # Try to parse the expression string (e.g., "d0 + d1 * 8")
-        # This is a simplified approach - handle common patterns
+        Common pattern for split loops: d0 + d1 * factor
+        which means: inner + outer * factor
+        """
+        expr_str = str(expr).strip()
 
         # Check if it's a dimension reference (d0, d1, etc.)
-        if expr_str.startswith('d'):
+        if expr_str.startswith('d') and len(expr_str) <= 3:
             try:
                 dim_num = int(expr_str[1:])
-                return operands[dim_num]
+                if dim_num < len(operands):
+                    return operands[dim_num]
             except (ValueError, IndexError):
                 pass
 
@@ -162,36 +163,42 @@ class MlirToDslxLowerer:
         except ValueError:
             pass
 
-        # Try to get the expression kind via attributes
-        if hasattr(expr, 'kind'):
-            kind = str(expr.kind)
+        # For common split pattern: "d0 + d1 * N"
+        # Parse the string representation as a fallback
+        if '+' in expr_str and '*' in expr_str:
+            # Pattern: d0 + d1 * factor
+            parts = expr_str.split('*')
+            if len(parts) == 2:
+                try:
+                    factor = int(parts[-1].strip().rstrip(')'))
+                    # Get the two operands (d0 and d1)
+                    if len(operands) >= 2:
+                        # Result: d0 + (d1 * factor)
+                        mul_node = DslxBinOp("*", operands[1], DslxConst(factor))
+                        return DslxBinOp("+", operands[0], mul_node)
+                except:
+                    pass
 
-            if 'Add' in kind:
-                lhs = self._eval_affine_expr(expr.lhs if hasattr(expr, 'lhs') else operands[0], operands)
-                rhs = self._eval_affine_expr(expr.rhs if hasattr(expr, 'rhs') else operands[1], operands)
-                return DslxBinOp("+", lhs, rhs)
-            elif 'Mul' in kind:
-                lhs = self._eval_affine_expr(expr.lhs if hasattr(expr, 'lhs') else operands[0], operands)
-                rhs = self._eval_affine_expr(expr.rhs if hasattr(expr, 'rhs') else operands[1], operands)
-                return DslxBinOp("*", lhs, rhs)
-
-        # Fallback: try to parse binary operations from children
+        # Try using expression structure if available
         if hasattr(expr, '__iter__') and not isinstance(expr, str):
-            children = list(expr)
-            if len(children) == 2:
-                lhs = self._eval_affine_expr(children[0], operands)
-                rhs = self._eval_affine_expr(children[1], operands)
-                # Try to infer operation from string representation
-                if '+' in expr_str:
-                    return DslxBinOp("+", lhs, rhs)
-                elif '*' in expr_str or 'mul' in expr_str.lower():
-                    return DslxBinOp("*", lhs, rhs)
+            try:
+                children = list(expr)
+                if len(children) >= 2:
+                    lhs = self._eval_affine_expr(children[0], operands)
+                    rhs = self._eval_affine_expr(children[1], operands)
+                    # Infer operation from string
+                    if '+' in expr_str and '*' not in expr_str.split('+')[0]:
+                        return DslxBinOp("+", lhs, rhs)
+                    elif '*' in expr_str:
+                        return DslxBinOp("*", lhs, rhs)
+            except:
+                pass
 
-        # Final fallback: return the first operand (for simple forwarding)
-        if operands:
+        # Fallback for simple identity (single operand)
+        if len(operands) == 1:
             return operands[0]
 
-        raise RuntimeError(f"Cannot evaluate affine expression: {expr} (type: {type(expr)})")
+        raise RuntimeError(f"Cannot evaluate affine expression: {expr_str}")
 
     def lower_load(self, op: affine_d.AffineLoadOp):
         base = op.memref

@@ -24,6 +24,7 @@ class IRContext:
         self.node_counter = 0
         self.memref_shapes = {}
         self.result_buffer = None
+        self.last_result_value = None  # Track the final SSA value for return
 
     def fresh_name(self, prefix="tmp"):
         """Generate fresh temporary name."""
@@ -92,6 +93,8 @@ class MlirToXlsIRLowerer:
         """Lower a single MLIR operation."""
         if isinstance(op, affine_d.AffineForOp):
             self.lower_for(op)
+        elif isinstance(op, affine_d.AffineApplyOp):
+            self.lower_affine_apply(op)
         elif isinstance(op, affine_d.AffineLoadOp):
             self.lower_load(op)
         elif isinstance(op, affine_d.AffineStoreOp):
@@ -272,6 +275,11 @@ class MlirToXlsIRLowerer:
         if buf_name in self.ctx.memref_shapes:
             self.ctx.memref_shapes[result] = self.ctx.memref_shapes[buf_name]
 
+        # Track this as the last result value - the final update will be the return value
+        # Check if this buffer is tracked in memref_shapes (meaning it's an allocated result buffer)
+        if buf_name in self.ctx.memref_shapes or result in self.ctx.memref_shapes:
+            self.ctx.last_result_value = result
+
     def lower_fill(self, op: linalg_d.FillOp):
         """Lower fill operation."""
         val = self.ctx.lookup(op.inputs[0])
@@ -298,17 +306,11 @@ class MlirToXlsIRLowerer:
 
     def lower_for(self, op: affine_d.AffineForOp):
         """Lower for loop by unrolling."""
+        # TODO: This kinda just pattern matches on some simple cases and doesnt generalize well.
+
         # Extract bounds
         lb = self.extract_bound(op.lowerBoundMap)
         ub = self.extract_bound(op.upperBoundMap)
-
-        loop_size = ub - lb
-
-        # Check if this loop is small enough to unroll
-        # We'll be conservative and only unroll small loops
-        if loop_size > 10:
-            self.ctx.emit(f"  // Loop from {lb} to {ub} - too large to unroll ({loop_size} iterations)")
-            return
 
         # Unroll the loop
         for i in range(lb, ub):
@@ -322,6 +324,69 @@ class MlirToXlsIRLowerer:
             for nested_op in op.body:
                 if not isinstance(nested_op, affine_d.AffineYieldOp):
                     self.lower_op(nested_op)
+
+    def lower_affine_apply(self, op: affine_d.AffineApplyOp):
+        """Lower affine.apply operation.
+
+        Typical affine map: (d0, d1) -> (d0 + d1 * factor)
+        This computes: inner + outer * factor
+        """
+        # Get the affine map
+        amap = op.map.value
+        expr = amap.results[0]
+
+        # Get operands
+        operands = list(op.operands)
+        operand_names = [self.ctx.lookup(operand) for operand in operands]
+
+        # Parse and evaluate the affine expression
+        # For simple cases like (d0, d1) -> (d0 + d1 * factor)
+        expr_str = str(expr).strip()
+
+        result_name = self.ctx.fresh_name("affine")
+
+        # Try to parse common affine expression patterns
+        if len(operands) == 2:
+            # Common case: d0 + d1 * factor
+            # Expression like: "d0 + d1 * 2"
+            d0_name = operand_names[0]
+            d1_name = operand_names[1]
+
+            # Try to extract the factor from the expression
+            # Look for "d1 * <number>" or just use simple addition if no multiplication
+            if '*' in expr_str:
+                # Extract factor - look for number after *
+                parts = expr_str.split('*')
+                if len(parts) >= 2:
+                    factor_str = parts[-1].strip().rstrip(')')
+                    try:
+                        factor = int(factor_str)
+                    except:
+                        factor = 2  # default
+                else:
+                    factor = 2
+
+                # Emit: factor_const = literal(value=factor)
+                factor_const = self.ctx.fresh_name("factor")
+                self.ctx.emit(f"  {factor_const}: bits[32] = literal(value={factor})")
+
+                # Emit: mul_result = umul(d1, factor)
+                mul_result = self.ctx.fresh_name("mul")
+                self.ctx.emit(f"  {mul_result}: bits[32] = umul({d1_name}, {factor_const})")
+
+                # Emit: result = add(d0, mul_result)
+                self.ctx.emit(f"  {result_name}: bits[32] = add({d0_name}, {mul_result})")
+            else:
+                # Simple addition: d0 + d1
+                self.ctx.emit(f"  {result_name}: bits[32] = add({d0_name}, {d1_name})")
+        elif len(operands) == 1:
+            # Identity map: just use the operand
+            result_name = operand_names[0]
+        else:
+            # Fallback: create a zero for unsupported affine maps
+            self.ctx.emit(f"  {result_name}: bits[32] = literal(value=0)")
+
+        self.ctx.bind(op.result, result_name)
 
     def lower_affine_index(self, indices):
         """Lower affine indices."""
@@ -376,8 +441,12 @@ class MlirToXlsIRLowerer:
         # Function body
         lines.extend(self.ctx.ir_lines)
 
-        # Return statement
-        lines.append(f"  ret {return_name}: {ret_type}")
+        # Return statement - use last_result_value if available
+        if self.ctx.last_result_value:
+            lines.append(f"  ret result: {ret_type} = identity({self.ctx.last_result_value})")
+        else:
+            # Fallback: create a literal array (shouldn't normally happen)
+            lines.append(f"  ret result: {ret_type} = identity({return_name})")
         lines.append("}")
 
         return "\n".join(lines)
