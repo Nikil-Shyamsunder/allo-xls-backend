@@ -221,3 +221,7 @@ python test_grid_ast_builders.py
 # Run lowering tests
 python test_proc_lowering.py
 ```
+
+
+## Verilator Tests
+For verilator testing, see [allo/backend/xls/tests/verilator/README.md](tests/verilator/README.md)
