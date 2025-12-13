@@ -24,14 +24,21 @@ parser.add_argument(
     "--input_file", default=None, help="The input xls file to, must be in the 'input' directory."
 )
 
+parser.add_argument(
+    "--output_dir", default=None, help="The directory for the xls output files, must be in the 'build' directory"
+)
+
 args = parser.parse_args()
 
 def setup(source_file):
-    output_dir = os.path.join(LLM_DIR, "build")
+    if args.output_dir is None:
+        output_dir = os.path.join(LLM_DIR, "build")
 
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        output_dir = args.output_dir
 
     with open("setup_config.yaml", "r") as f:
         config = yaml.safe_load(f)

@@ -1,4 +1,4 @@
-# ========== split outer loop into 2 and iner loop into 2 ==========
+
 def allo_gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
    C: int32[32, 32] = 0
    for i, j, k in allo.grid(32, 32, 32):

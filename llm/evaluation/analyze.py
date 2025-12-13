@@ -15,7 +15,7 @@ LLM_DIR = os.path.dirname(EVAL_DIR)
 # creates a build folder within current directory
 os.makedirs("build", exist_ok = True)
 
-output_dir = os.path.join(LLM_DIR, "build")
+#output_dir = os.path.join(LLM_DIR, "build")
 exp_dir = os.path.join(EVAL_DIR, "build")
 
 if os.path.exists(exp_dir):
@@ -26,14 +26,14 @@ os.makedirs(exp_dir, exist_ok=True)
 # Generate once
 # -----------------------------------------------------------------
 
-def run_one(input_file, output_file):
+def run_one(input_file, output_file, output_dir):
     """
     Runs the agent on with the input xls file. Writes the log to output file
     
     :param input_file: the input xls source file
     :param output_file: the pull path to output log 
     """
-    command = ["python3", "main.py", "--input_file", input_file]
+    command = ["python3", "main.py", "--input_file", input_file, "--output_dir", output_dir]
     try:
         result = subprocess.run(
             command,
@@ -168,7 +168,7 @@ def verify_once(test_file, output_file, test_output_file):
         print(error_message.decode("utf-8"))
         f.write(error_message.decode("utf-8"))
 
-    return not exit_code
+    return not error_code
 
 # -----------------------------------------------------------------
 # Formatting helpers
@@ -217,7 +217,7 @@ def main():
 
     # Get spacing per source for summary file fomatting
     spaces = spaces_to_align_dots(sources)
-
+    #shutil.rmtree(os.path.join(LLM_DIR, "build"))
     for i in range(len(sources)):
 
         # Write the name of the source file
@@ -228,11 +228,16 @@ def main():
         for j in range(int(num_trials)):
             source = sources[i]
             s = Path(source)
-
+            
+            build_path = os.path.join(LLM_DIR, "build", f"{s.stem}_{j}")
+            if os.path.exists(build_path):
+                shutil.rmtree(build_path)
+            os.makedirs(build_path, exist_ok=True)
             # Generate
             generate_log_file = os.path.join(exp_dir, f"{s.stem}_{j}.log")
+            final_output_file = os.path.join(exp_dir, f"{s.stem}_{j}.x")
             test_output_file = os.path.join(exp_dir, f"{s.stem}_test_{j}.log")
-            run_one(source, generate_log_file)
+            run_one(source, generate_log_file, build_path)
 
             # Parse result
             parsed_result = analyze_once(generate_log_file)
@@ -241,10 +246,11 @@ def main():
             agent_num_tries = parsed_result["number of generations"]
 
             ouput_file_path = parsed_result["final output file path"]
+            shutil.copy(ouput_file_path, final_output_file)
             
             # Run the test if status is success
             if agent_status == "success":
-                test_file = os.path.join(LLM_DIR, "input", tests[i])
+                test_file = os.path.join(LLM_DIR, "input", test)
                 eval_success = verify_once(test_file, ouput_file_path, test_output_file)
 
                 # write result to dslx summary file
