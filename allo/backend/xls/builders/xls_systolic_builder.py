@@ -408,25 +408,31 @@ class XLSSystolicArrayBuilder:
         # 5. Drop edge values (using recv_non_blocking)
         # Drop from east edges
         for row in range(self.rows):
-            next_stmts.append(DslxFuncCall(
+            next_stmts.append(DslxLet(
+                DslxVar("_"),
+                DslxFuncCall(
                     "recv_non_blocking",
                     [
                         DslxFuncCall("token", []),
-                        DslxArrayIndex(DslxVar("from_vert"), [DslxLiteral(self.rows, "u32"), DslxLiteral(col, "u32")]),
-                        DslxLiteral(0, self.elem_type)
+                        DslxArrayIndex(DslxVar("from_hor"), [DslxLiteral(row, "u32"), DslxLiteral(self.cols, "u32")]),
+                        self._zero_value()
                     ]
-                ))
+                )
+            ))
 
         # Drop from south edges
         for col in range(self.cols):
-            next_stmts.append(DslxFuncCall(
+            next_stmts.append(DslxLet(
+                DslxVar("_"),
+                DslxFuncCall(
                     "recv_non_blocking",
                     [
                         DslxFuncCall("token", []),
                         DslxArrayIndex(DslxVar("from_vert"), [DslxLiteral(self.rows, "u32"), DslxLiteral(col, "u32")]),
                         self._zero_value()
                     ]
-                ))
+                )
+            ))
 
         # 6. Join feeding tokens
         next_stmts.append(DslxLet(
