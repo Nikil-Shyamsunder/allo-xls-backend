@@ -114,14 +114,14 @@ pub proc SystolicArray {
       tok_b2
     };
     let tok2 = tok_b3;
-    let _ = recv_non_blocking(token(), from_hor[u32:0][u32:4], u32:0);
-    let _ = recv_non_blocking(token(), from_hor[u32:1][u32:4], u32:0);
-    let _ = recv_non_blocking(token(), from_hor[u32:2][u32:4], u32:0);
-    let _ = recv_non_blocking(token(), from_hor[u32:3][u32:4], u32:0);
-    let _ = recv_non_blocking(token(), from_vert[u32:4][u32:0], u32:0);
-    let _ = recv_non_blocking(token(), from_vert[u32:4][u32:1], u32:0);
-    let _ = recv_non_blocking(token(), from_vert[u32:4][u32:2], u32:0);
-    let _ = recv_non_blocking(token(), from_vert[u32:4][u32:3], u32:0);
+    recv_non_blocking(token(), from_hor[u32:0][u32:4], u32:0);
+    recv_non_blocking(token(), from_hor[u32:1][u32:4], u32:0);
+    recv_non_blocking(token(), from_hor[u32:2][u32:4], u32:0);
+    recv_non_blocking(token(), from_hor[u32:3][u32:4], u32:0);
+    recv_non_blocking(token(), from_vert[u32:4][u32:0], u32:0);
+    recv_non_blocking(token(), from_vert[u32:4][u32:1], u32:0);
+    recv_non_blocking(token(), from_vert[u32:4][u32:2], u32:0);
+    recv_non_blocking(token(), from_vert[u32:4][u32:3], u32:0);
     let tok3 = join(tok1, tok2);
     if index0 == u32:4 {
       let (t00, c00) = recv(tok3, result_chans_in[u32:0][u32:0]);
