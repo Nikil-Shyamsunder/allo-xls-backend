@@ -1,11 +1,8 @@
-import sys
-sys.path.insert(0, '/home/yb265/allo-xls-backend')
-
 import allo
 from allo.ir.types import int32
 from allo._mlir.dialects import func as func_d
 
-from allo.backend.xls import MlirToDslxLowerer, debug_print_ir
+from . import MlirToDslxLowerer, debug_print_ir
 
 
 def allo_gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
