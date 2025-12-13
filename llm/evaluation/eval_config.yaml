@@ -1,0 +1,10 @@
+num_trials: 10
+models: [gpt-5-mini]
+sources: 
+  - prob01_simple.py
+  - prob02_split_outer.py
+  - prob03_split_inner.py
+  - prob04_split_both.py
+  - prob05_split_both_merge.py
+  - prob06_two_kernels.py
+test: allo_gemm_test.x

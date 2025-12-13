@@ -1,0 +1,6 @@
+0003:   let c_init = A;
+0004: 
+0005:   let c = for (i, c_acc) in range(u32:0, u32:32) {
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^---^ TypeInferenceError: Cannot find built-in method `range`
+0006:     // Build row i by computing each dot product for column j.
+0007:     let row_init = c_acc[i];
