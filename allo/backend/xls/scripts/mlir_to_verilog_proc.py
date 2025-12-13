@@ -26,8 +26,9 @@ from pathlib import Path
 
 # Add allo-xls-backend to Python path
 SCRIPT_DIR = Path(__file__).parent.resolve()
-BACKEND_DIR = SCRIPT_DIR.parent
-sys.path.insert(0, str(BACKEND_DIR))
+# Go up to allo-xls-backend root: scripts -> xls -> backend -> allo -> allo-xls-backend
+BACKEND_ROOT = SCRIPT_DIR.parent.parent.parent.parent
+sys.path.insert(0, str(BACKEND_ROOT))
 
 # Import MLIR parsing and lowering
 try:
@@ -74,6 +75,7 @@ def dslx_to_ir(dslx_path):
         result = subprocess.run(
             [f"{XLS_DIR}/ir_converter_main",
              "--warnings_as_errors=false",
+             "--dslx_stdlib_path=/scratch/users/zrs29/xls/xls/xls/dslx/stdlib",
              str(dslx_path)],
             capture_output=True,
             text=True,

@@ -12,7 +12,7 @@ from ..systolic import (
     PEAnalyzer,
     MatrixDimensionExtractor
 )
-from ..builders import SystolicArrayBuilder, ProcModuleBuilder, PEProcBuilder
+from ..builders import XLSSystolicArrayBuilder
 from ..dslx_ast import DslxProcSerializer
 
 
@@ -76,17 +76,15 @@ class MlirToDslxProcLowererAST:
 
             print(f"[AST Lowerer] Grid: {rows}x{cols}, K={k_bound}, type={elem_type}")
 
-            # Step 3: Build using AST
-            builder = SystolicArrayBuilder(
+            # Step 3: Build using XLS-compatible concrete builder
+            builder = XLSSystolicArrayBuilder(
                 rows=rows,
                 cols=cols,
-                m_dim=M,
-                n_dim=N,
                 k_bound=k_bound,
                 elem_type=elem_type
             )
-            
-            module = builder.build_complete_module()
+
+            module = builder.build_module()
 
             # Step 4: Serialize to DSLX
             serializer = DslxProcSerializer()

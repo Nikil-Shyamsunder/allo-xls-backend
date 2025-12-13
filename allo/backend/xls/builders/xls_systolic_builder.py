@@ -14,7 +14,15 @@ class XLSSystolicArrayBuilder:
         self.rows = rows
         self.cols = cols
         self.k_bound = k_bound
-        self.elem_type = elem_type
+        # Convert F32 to fully qualified float32::F32 for DSLX
+        self.elem_type = "float32::F32" if elem_type == "F32" else elem_type
+
+    def _zero_value(self):
+        """Generate zero value for the element type."""
+        if "float32::" in self.elem_type:
+            return DslxFuncCall("float32::zero", [DslxLiteral(0, "u1")])
+        else:
+            return DslxLiteral(0, self.elem_type)
 
     def build_pe_proc(self):
         """Build concrete PE proc (no type parameters).
@@ -51,7 +59,7 @@ class XLSSystolicArrayBuilder:
         # Init: (accum, k) = (0, 0)
         init = DslxInitFunc(
             DslxTuple([
-                DslxLiteral(0, f"{self.elem_type}"),
+                self._zero_value(),
                 DslxLiteral(0, "u32")
             ])
         )
@@ -83,16 +91,24 @@ class XLSSystolicArrayBuilder:
             ])
         ))
 
-        # let prod = a * b;
+        # let prod = a * b; (use float32::mul for float types)
+        if "float32::" in self.elem_type:
+            prod_expr = DslxFuncCall("float32::mul", [DslxVar("a"), DslxVar("b")])
+        else:
+            prod_expr = DslxBinOp("*", DslxVar("a"), DslxVar("b"))
         next_stmts.append(DslxLet(
             DslxVar("prod"),
-            DslxBinOp("*", DslxVar("a"), DslxVar("b"))
+            prod_expr
         ))
 
-        # let new_accum = accum + prod;
+        # let new_accum = accum + prod; (use float32::add for float types)
+        if "float32::" in self.elem_type:
+            accum_expr = DslxFuncCall("float32::add", [DslxVar("accum"), DslxVar("prod")])
+        else:
+            accum_expr = DslxBinOp("+", DslxVar("accum"), DslxVar("prod"))
         next_stmts.append(DslxLet(
             DslxVar("new_accum"),
-            DslxBinOp("+", DslxVar("accum"), DslxVar("prod"))
+            accum_expr
         ))
 
         # let tok = send(tok, to_east, a);
@@ -138,12 +154,12 @@ class XLSSystolicArrayBuilder:
             ])
         ))
 
-        # let new_state = if should_output { (u32:0, u32:0) } else { (new_accum, new_k) };
+        # let new_state = if should_output { (0, u32:0) } else { (new_accum, new_k) };
         next_stmts.append(DslxLet(
             DslxVar("new_state"),
             DslxIf(
                 DslxVar("should_output"),
-                DslxTuple([DslxLiteral(0, "u32"), DslxLiteral(0, "u32")]),
+                DslxTuple([self._zero_value(), DslxLiteral(0, "u32")]),
                 DslxTuple([DslxVar("new_accum"), DslxVar("new_k")])
             )
         ))
@@ -282,11 +298,11 @@ class XLSSystolicArrayBuilder:
         # Initialize with zero matrices using AST
         zero_mat_a = DslxArrayLiteral(
             self.elem_type,
-            [DslxArrayLiteral(self.elem_type, [DslxLiteral(0, self.elem_type)] * self.k_bound) for _ in range(self.rows)]
+            [DslxArrayLiteral(self.elem_type, [self._zero_value() for _ in range(self.k_bound)]) for _ in range(self.rows)]
         )
         zero_mat_b = DslxArrayLiteral(
             self.elem_type,
-            [DslxArrayLiteral(self.elem_type, [DslxLiteral(0, self.elem_type)] * self.cols) for _ in range(self.k_bound)]
+            [DslxArrayLiteral(self.elem_type, [self._zero_value() for _ in range(self.cols)]) for _ in range(self.k_bound)]
         )
 
         init = DslxInitFunc(
@@ -408,7 +424,7 @@ class XLSSystolicArrayBuilder:
                     [
                         DslxFuncCall("token", []),
                         DslxArrayIndex(DslxVar("from_vert"), [DslxLiteral(self.rows, "u32"), DslxLiteral(col, "u32")]),
-                        DslxLiteral(0, self.elem_type)
+                        self._zero_value()
                     ]
                 ))
 
@@ -464,11 +480,11 @@ class XLSSystolicArrayBuilder:
         # Return reset state
         zero_mat_a = DslxArrayLiteral(
             self.elem_type,
-            [DslxArrayLiteral(self.elem_type, [DslxLiteral(0, self.elem_type)] * self.k_bound) for _ in range(self.rows)]
+            [DslxArrayLiteral(self.elem_type, [self._zero_value() for _ in range(self.k_bound)]) for _ in range(self.rows)]
         )
         zero_mat_b = DslxArrayLiteral(
             self.elem_type,
-            [DslxArrayLiteral(self.elem_type, [DslxLiteral(0, self.elem_type)] * self.cols) for _ in range(self.k_bound)]
+            [DslxArrayLiteral(self.elem_type, [self._zero_value() for _ in range(self.cols)]) for _ in range(self.k_bound)]
         )
         then_collect_stmts.append(DslxTuple([
             zero_mat_a,
@@ -513,9 +529,14 @@ class XLSSystolicArrayBuilder:
         # Make the parametric SystolicArray public instead of wrapper
         systolic_proc.is_public = True
 
-        # Create module (no wrapper needed)
+        # Import float32 if using float types
+        imports = []
+        if "float32::" in self.elem_type:
+            imports = [DslxImport("float32")]
+
+        # Create module
         module = DslxModule(
-            imports=[],
+            imports=imports,
             type_aliases=[],
             procs=[pe_proc, systolic_proc]  # No wrapper
         )
