@@ -1,0 +1,6 @@
+design,pipeline_latency_cycles
+gemm_chat_2_0,5
+gemm_chat_2_1,5
+gemm_chat_3_0,5
+gemm_chat_3_1,5
+gemm_claude_4,5
