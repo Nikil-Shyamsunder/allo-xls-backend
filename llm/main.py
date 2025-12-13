@@ -24,6 +24,10 @@ parser.add_argument(
     "--input_file", default=None, help="The input xls file to, must be in the 'input' directory."
 )
 
+parser.add_argument(
+    "--model", default=None, help="Model to run."
+)
+
 args = parser.parse_args()
 
 def setup(source_file):
@@ -46,7 +50,10 @@ def setup(source_file):
         os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
     # verify chat model
-    llm_model = config["model"]
+    if args.model is None:
+        llm_model = config["model"]
+    else:
+        llm_model = args.model
     from langchain.chat_models import init_chat_model
     init_chat_model(llm_model)
 

@@ -18,22 +18,22 @@ os.makedirs("build", exist_ok = True)
 output_dir = os.path.join(LLM_DIR, "build")
 exp_dir = os.path.join(EVAL_DIR, "build")
 
-if os.path.exists(exp_dir):
-    shutil.rmtree(exp_dir)
-os.makedirs(exp_dir, exist_ok=True)
+# if os.path.exists(exp_dir):
+#     shutil.rmtree(exp_dir)
+# os.makedirs(exp_dir, exist_ok=True)
 
 # -----------------------------------------------------------------
 # Generate once
 # -----------------------------------------------------------------
 
-def run_one(input_file, output_file):
+def run_one(model, input_file, output_file):
     """
     Runs the agent on with the input xls file. Writes the log to output file
     
     :param input_file: the input xls source file
     :param output_file: the pull path to output log 
     """
-    command = ["python3", "main.py", "--input_file", input_file]
+    command = ["python3", "main.py", "--input_file", input_file, "--model", model]
     try:
         result = subprocess.run(
             command,
@@ -168,7 +168,7 @@ def verify_once(test_file, output_file, test_output_file):
         print(error_message.decode("utf-8"))
         f.write(error_message.decode("utf-8"))
 
-    return not exit_code
+    return not error_code
 
 # -----------------------------------------------------------------
 # Formatting helpers
@@ -203,71 +203,77 @@ def main():
         config = yaml.safe_load(f)
 
     num_trials = config["num_trials"]
-    sources = config["source"]
-    tests = config["test"]
+    sources = config["sources"]
+    tests = config["tests"]
+    models = config["models"]
 
-    assert len(sources) == len(tests), "must have same number of sources and tests"
+    for model in models:
+        print(f"Starting model {model}")
+        # Get the path to the summary files
+        agent_summary = os.path.join(exp_dir, f"{model}_agent_summary.log")
+        f_agent = open(agent_summary, "a")
 
-    # Get the path to the summary files
-    agent_summary = os.path.join(exp_dir, "agent_summary.log")
-    f_agent = open(agent_summary, "a")
+        dslx_summary = os.path.join(exp_dir, f"{model}_dslx_summary.log")
+        f_dslx = open(dslx_summary, "a")
 
-    dslx_summary = os.path.join(exp_dir, "dslx_summary.log")
-    f_dslx = open(dslx_summary, "a")
+        # Get spacing per source for summary file fomatting
+        spaces = spaces_to_align_dots(sources)
 
-    # Get spacing per source for summary file fomatting
-    spaces = spaces_to_align_dots(sources)
+        for i in range(len(sources)):
+            print(f"Starting source {sources[i]}")
 
-    for i in range(len(sources)):
+            # Write the name of the source file
+            f_agent.write(f"{sources[i]}{" " * spaces[i]}")
+            f_dslx.write(f"{sources[i]}{" " * spaces[i]}")
 
-        # Write the name of the source file
-        f_agent.write(f"{sources[i]}{" " * spaces[i]}")
-        f_dslx.write(f"{sources[i]}{" " * spaces[i]}")
+            # Run trials
+            for j in range(int(num_trials)):
+                print(f"Starting trial {j}")
+                source = sources[i]
+                s = Path(source)
 
-        # Run trials
-        for j in range(int(num_trials)):
-            source = sources[i]
-            s = Path(source)
+                # Generate
+                generate_log_file = os.path.join(exp_dir, f"{model}_{s.stem}_{j}.log")
+                final_output_file = os.path.join(exp_dir, f"{model}_{s.stem}_{j}.x")
+                test_output_file = os.path.join(exp_dir, f"{model}_{s.stem}_test_{j}.log")
+                run_one(model, source, generate_log_file)
 
-            # Generate
-            generate_log_file = os.path.join(exp_dir, f"{s.stem}_{j}.log")
-            test_output_file = os.path.join(exp_dir, f"{s.stem}_test_{j}.log")
-            run_one(source, generate_log_file)
+                # Parse result
+                parsed_result = analyze_once(generate_log_file)
+                print(parsed_result)
+                agent_status = parsed_result["status"]
+                agent_num_tries = parsed_result["number of generations"]
 
-            # Parse result
-            parsed_result = analyze_once(generate_log_file)
-            print(parsed_result)
-            agent_status = parsed_result["status"]
-            agent_num_tries = parsed_result["number of generations"]
+                ouput_file_path = parsed_result["final output file path"]
+                if os.path.exists(ouput_file_path):
+                    shutil.copy(ouput_file_path, final_output_file)
+                
+                # Run the test if status is success
+                if agent_status == "success":
+                    test_file = os.path.join(LLM_DIR, "input", tests[i])
+                    eval_success = verify_once(test_file, final_output_file, test_output_file)
 
-            ouput_file_path = parsed_result["final output file path"]
-            
-            # Run the test if status is success
-            if agent_status == "success":
-                test_file = os.path.join(LLM_DIR, "input", tests[i])
-                eval_success = verify_once(test_file, ouput_file_path, test_output_file)
+                    # write result to dslx summary file
+                    if eval_success:
+                        f_dslx.write(" .")
+                    else:
+                        f_dslx.write(" F")
 
-                # write result to dslx summary file
-                if eval_success:
-                    f_dslx.write(" .")
+                    # write num trials to agent summary
+                    f_agent.write(f" {agent_num_tries}")
+
                 else:
-                    f_dslx.write(" F")
+                    # write result to dslx summary file
+                    f_dslx.write(" f")
 
-                # write num trials to agent summary
-                f_agent.write(f" {agent_num_tries}")
+                    # write num trials to agent summary
+                    f_agent.write(" X")
 
-            else:
-                # write result to dslx summary file
-                f_dslx.write(" f")
+            f_dslx.write("\n")
+            f_agent.write("\n")
 
-                # write num trials to agent summary
-                f_agent.write(" X")
-
-        f_dslx.write("\n")
-        f_agent.write("\n")
-
-    f_dslx.close()
-    f_agent.close()
+        f_dslx.close()
+        f_agent.close()
 
 if __name__ == "__main__":
     main()

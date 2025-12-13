@@ -12,7 +12,7 @@ def ele_copy(out_AB: int32[32, 32], C: int32[32, 32]):
        C[i1, j1] = out_AB[i1, j1]
 
 
-def gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
+def allo_gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
    C: int32[32, 32] = 0
    out_AB: int32[32, 32] = 0
 
@@ -24,7 +24,7 @@ def gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
    return C
 
 
-s = allo.customize(gemm)
+s = allo.customize(allo_gemm)
 
 
 # Customize sub-kernels
