@@ -76,8 +76,6 @@ Options:
 - `--pipeline-stages N`: Number of pipeline stages (default: 5)
 - `--name NAME`: Base name for output files (default: systolic)
 
-See [scripts/README.md](scripts/README.md) for detailed documentation.
-
 #### [scripts/mlir_to_dslx_fn.py](scripts/mlir_to_dslx_fn.py)
 Converts MLIR functions to DSLX code (function-based, not proc-based).
 
@@ -126,8 +124,6 @@ This generates MLIR → DSLX → XLS IR → Verilog for all variants.
 ```bash
 ./run_tests.sh
 ```
-
-See [examples/systolic/README.md](examples/systolic/README.md) for more details.
 
 #### GEMM Examples
 
