@@ -1,8 +1,7 @@
-
 from allo.ir.types import int32
 import allo
 
-
+# pure matmul into an intermediate buffer
 def mm1(A: int32[32, 32], B: int32[32, 32], out_AB: int32[32, 32]):
    for i0, j0, k0 in allo.grid(32, 32, 32, name="mm1"):
        out_AB[i0, j0] += A[i0, k0] * B[k0, j0]
@@ -25,9 +24,10 @@ def allo_gemm(A: int32[32, 32], B: int32[32, 32]) -> int32[32, 32]:
    return C
 
 
-s = allo.customize(gemm)
+s = allo.customize(allo_gemm)
 
 
+# Customize sub-kernels
 sch_mm1 = allo.customize(mm1)
 sch_ele = allo.customize(ele_copy)
 

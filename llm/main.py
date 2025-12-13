@@ -25,6 +25,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--model", default=None, help="Model to run."
+)
+
+parser.add_argument(
     "--output_dir", default=None, help="The directory for the xls output files, must be in the 'build' directory"
 )
 
@@ -53,7 +57,10 @@ def setup(source_file):
         os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
 
     # verify chat model
-    llm_model = config["model"]
+    if args.model is None:
+        llm_model = config["model"]
+    else:
+        llm_model = args.model
     from langchain.chat_models import init_chat_model
     init_chat_model(llm_model)
 
