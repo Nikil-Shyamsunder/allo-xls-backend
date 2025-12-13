@@ -4,8 +4,9 @@
 
 set -e  # Exit on error
 
-# Activate conda environment
-source /home/nvs26/miniconda3/bin/activate allo
+# Activate conda environment (assumes conda is initialized in shell)
+eval "$(conda shell.bash hook)"
+conda activate allo
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MLIR_TO_VERILOG="$SCRIPT_DIR/../../scripts/mlir_to_verilog_proc.py"

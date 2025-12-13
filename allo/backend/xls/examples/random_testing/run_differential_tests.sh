@@ -2,7 +2,8 @@
 # Run all differential tests
 
 INTERPRETER="/scratch/users/zrs29/xls/xls/interpreter_main"
-DIFF_DIR="/home/nvs26/allo-xls-backend/allo/backend/xls/examples/random_testing/differential"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIFF_DIR="$SCRIPT_DIR/differential"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
