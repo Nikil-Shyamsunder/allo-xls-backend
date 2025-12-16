@@ -15,6 +15,10 @@ Additionally, ensure that the following environment variables are set:
 - Run on `zhang-21.ece.cornell.edu`
 - XLS tools should be available at `/scratch/users/zrs29/xls/xls/`
 
+If you decide to use `havarti.cs.cornell.edu.` as your server of choice:
+- For conda, `conda activate axls`
+- Just run everything from the `/scratch/cys36` directory
+
 ## Directory Structure
 
 ```
@@ -48,6 +52,7 @@ allo/backend/xls/
 ├── examples/          # Example workflows
 │   ├── systolic/          # Systolic array examples
 │   ├── gemm/              # GEMM benchmarks
+│   ├── meta_systolic /    # Systolic array examples from meta Allo
 │   └── random_testing/    # Random testing
 │
 └── tests/             # Test suite
