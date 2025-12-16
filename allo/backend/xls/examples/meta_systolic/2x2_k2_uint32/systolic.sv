@@ -47,37 +47,22 @@ module __systolic__SystolicArray_0_next__1(
   output wire systolic__vert_chans__2_0_rdy,
   output wire systolic__vert_chans__2_1_rdy
 );
-  wire [31:0] __systolic__arg0_reg_init[0:1][0:1];
-  assign __systolic__arg0_reg_init[0][0] = 32'h0000_0000;
-  assign __systolic__arg0_reg_init[0][1] = 32'h0000_0000;
-  assign __systolic__arg0_reg_init[1][0] = 32'h0000_0000;
-  assign __systolic__arg0_reg_init[1][1] = 32'h0000_0000;
-  wire [31:0] __systolic__arg1_reg_init[0:1][0:1];
-  assign __systolic__arg1_reg_init[0][0] = 32'h0000_0000;
-  assign __systolic__arg1_reg_init[0][1] = 32'h0000_0000;
-  assign __systolic__arg1_reg_init[1][0] = 32'h0000_0000;
-  assign __systolic__arg1_reg_init[1][1] = 32'h0000_0000;
-  wire [31:0] __systolic__out0_reg_init[0:1][0:1];
-  assign __systolic__out0_reg_init[0][0] = 32'h0000_0000;
-  assign __systolic__out0_reg_init[0][1] = 32'h0000_0000;
-  assign __systolic__out0_reg_init[1][0] = 32'h0000_0000;
-  assign __systolic__out0_reg_init[1][1] = 32'h0000_0000;
-  wire [31:0] literal_1438[0:1][0:1];
-  assign literal_1438[0][0] = 32'h0000_0000;
-  assign literal_1438[0][1] = 32'h0000_0000;
-  assign literal_1438[1][0] = 32'h0000_0000;
-  assign literal_1438[1][1] = 32'h0000_0000;
-  wire [31:0] literal_1442[0:1][0:1];
-  assign literal_1442[0][0] = 32'h0000_0000;
-  assign literal_1442[0][1] = 32'h0000_0000;
-  assign literal_1442[1][0] = 32'h0000_0000;
-  assign literal_1442[1][1] = 32'h0000_0000;
-  wire [31:0] systolic__arg0_unflattened[0:1][0:1];
+  wire [31:0] __systolic__arg0_reg_init[2][2];
+  assign __systolic__arg0_reg_init = '{'{32'h0000_0000, 32'h0000_0000}, '{32'h0000_0000, 32'h0000_0000}};
+  wire [31:0] __systolic__arg1_reg_init[2][2];
+  assign __systolic__arg1_reg_init = '{'{32'h0000_0000, 32'h0000_0000}, '{32'h0000_0000, 32'h0000_0000}};
+  wire [31:0] __systolic__out0_reg_init[2][2];
+  assign __systolic__out0_reg_init = '{'{32'h0000_0000, 32'h0000_0000}, '{32'h0000_0000, 32'h0000_0000}};
+  wire [31:0] literal_1438[2][2];
+  assign literal_1438 = '{'{32'h0000_0000, 32'h0000_0000}, '{32'h0000_0000, 32'h0000_0000}};
+  wire [31:0] literal_1442[2][2];
+  assign literal_1442 = '{'{32'h0000_0000, 32'h0000_0000}, '{32'h0000_0000, 32'h0000_0000}};
+  wire [31:0] systolic__arg0_unflattened[2][2];
   assign systolic__arg0_unflattened[0][0] = systolic__arg0[31:0];
   assign systolic__arg0_unflattened[0][1] = systolic__arg0[63:32];
   assign systolic__arg0_unflattened[1][0] = systolic__arg0[95:64];
   assign systolic__arg0_unflattened[1][1] = systolic__arg0[127:96];
-  wire [31:0] systolic__arg1_unflattened[0:1][0:1];
+  wire [31:0] systolic__arg1_unflattened[2][2];
   assign systolic__arg1_unflattened[0][0] = systolic__arg1[31:0];
   assign systolic__arg1_unflattened[0][1] = systolic__arg1[63:32];
   assign systolic__arg1_unflattened[1][0] = systolic__arg1[95:64];
@@ -98,9 +83,9 @@ module __systolic__SystolicArray_0_next__1(
   reg __systolic__hor_chans__1_0_has_been_sent_reg;
   reg __systolic__vert_chans__0_1_has_been_sent_reg;
   reg __systolic__out0_has_been_sent_reg;
-  reg [31:0] __systolic__arg0_reg[0:1][0:1];
+  reg [31:0] __systolic__arg0_reg[2][2];
   reg __systolic__arg0_valid_reg;
-  reg [31:0] __systolic__arg1_reg[0:1][0:1];
+  reg [31:0] __systolic__arg1_reg[2][2];
   reg __systolic__arg1_valid_reg;
   reg [31:0] __systolic__hor_chans__0_2_reg;
   reg __systolic__hor_chans__0_2_valid_reg;
@@ -126,7 +111,7 @@ module __systolic__SystolicArray_0_next__1(
   reg __systolic__hor_chans__1_0_valid_reg;
   reg [31:0] __systolic__vert_chans__0_1_reg;
   reg __systolic__vert_chans__0_1_valid_reg;
-  reg [31:0] __systolic__out0_reg[0:1][0:1];
+  reg [31:0] __systolic__out0_reg[2][2];
   reg __systolic__out0_valid_reg;
   wire p1_all_active_inputs_valid;
   wire __systolic__out0_vld_buf;
@@ -171,8 +156,8 @@ module __systolic__SystolicArray_0_next__1(
   wire p0_data_enable;
   wire [2:0] one_hot_1476;
   wire p0_load_en;
-  wire [31:0] systolic__arg0_select[0:1][0:1];
-  wire [31:0] systolic__arg1_select[0:1][0:1];
+  wire [31:0] systolic__arg0_select[2][2];
+  wire [31:0] systolic__arg1_select[2][2];
   wire and_1626;
   wire systolic__arg0_valid_inv;
   wire systolic__arg1_valid_inv;
@@ -217,8 +202,8 @@ module __systolic__SystolicArray_0_next__1(
   wire __systolic__vert_chans__0_1_valid_and_ready_txfr;
   wire __systolic__out0_valid_and_all_active_outputs_ready;
   wire __systolic__out0_valid_and_ready_txfr;
-  wire [31:0] array_1561[0:1];
-  wire [31:0] array_1562[0:1];
+  wire [31:0] array_1561[2];
+  wire [31:0] array_1562[2];
   wire systolic__arg0_load_en;
   wire systolic__arg1_load_en;
   wire systolic__hor_chans__0_2_load_en;
@@ -251,7 +236,7 @@ module __systolic__SystolicArray_0_next__1(
   wire [31:0] __systolic__vert_chans__0_0_buf;
   wire [31:0] __systolic__hor_chans__1_0_buf;
   wire [31:0] __systolic__vert_chans__0_1_buf;
-  wire [31:0] c[0:1][0:1];
+  wire [31:0] c[2][2];
   assign p1_all_active_inputs_valid = (~p0_eq_1473 | __systolic__result_chans__0_0_valid_reg) & (~p0_eq_1473 | __systolic__result_chans__0_1_valid_reg) & (~p0_eq_1473 | __systolic__result_chans__1_0_valid_reg) & (~p0_eq_1473 | __systolic__result_chans__1_1_valid_reg);
   assign __systolic__out0_vld_buf = p1_all_active_inputs_valid & p0_valid & p0_eq_1473;
   assign __systolic__out0_not_has_been_sent = ~__systolic__out0_has_been_sent_reg;
@@ -295,14 +280,8 @@ module __systolic__SystolicArray_0_next__1(
   assign p0_data_enable = p0_enable & p0_stage_done;
   assign one_hot_1476 = {____state_2__next_value_predicates[1:0] == 2'h0, ____state_2__next_value_predicates[1] && !____state_2__next_value_predicates[0], ____state_2__next_value_predicates[0]};
   assign p0_load_en = p0_data_enable | rst;
-  assign systolic__arg0_select[0][0] = nor_1436 == 1'h0 ? literal_1438[0][0] : __systolic__arg0_reg[0][0];
-  assign systolic__arg0_select[0][1] = nor_1436 == 1'h0 ? literal_1438[0][1] : __systolic__arg0_reg[0][1];
-  assign systolic__arg0_select[1][0] = nor_1436 == 1'h0 ? literal_1438[1][0] : __systolic__arg0_reg[1][0];
-  assign systolic__arg0_select[1][1] = nor_1436 == 1'h0 ? literal_1438[1][1] : __systolic__arg0_reg[1][1];
-  assign systolic__arg1_select[0][0] = nor_1436 == 1'h0 ? literal_1442[0][0] : __systolic__arg1_reg[0][0];
-  assign systolic__arg1_select[0][1] = nor_1436 == 1'h0 ? literal_1442[0][1] : __systolic__arg1_reg[0][1];
-  assign systolic__arg1_select[1][0] = nor_1436 == 1'h0 ? literal_1442[1][0] : __systolic__arg1_reg[1][0];
-  assign systolic__arg1_select[1][1] = nor_1436 == 1'h0 ? literal_1442[1][1] : __systolic__arg1_reg[1][1];
+  assign systolic__arg0_select = nor_1436 == 1'h0 ? literal_1438 : __systolic__arg0_reg;
+  assign systolic__arg1_select = nor_1436 == 1'h0 ? literal_1442 : __systolic__arg1_reg;
   assign and_1626 = p0_load_en & nor_1436;
   assign systolic__arg0_valid_inv = ~__systolic__arg0_valid_reg;
   assign systolic__arg1_valid_inv = ~__systolic__arg1_valid_reg;
@@ -383,14 +362,12 @@ module __systolic__SystolicArray_0_next__1(
   assign __systolic__vert_chans__0_0_buf = nor_1436 ? array_index_1453 : ____state_1_1_0;
   assign __systolic__hor_chans__1_0_buf = nor_1436 ? array_index_1460 : ____state_0_1_1;
   assign __systolic__vert_chans__0_1_buf = nor_1436 ? array_index_1463 : ____state_1_1_1;
-  assign c[0][0] = array_1561[0];
-  assign c[0][1] = array_1561[1];
-  assign c[1][0] = array_1562[0];
-  assign c[1][1] = array_1562[1];
-  always @ (posedge clk) begin
+  assign c[0] = array_1561;
+  assign c[1] = array_1562;
+  always_ff @ (posedge clk) begin
     p0_eq_1473 <= p0_load_en ? eq_1473 : p0_eq_1473;
   end
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     if (rst) begin
       ____state_2 <= 2'h0;
       ____state_0_0_1 <= 32'h0000_0000;
@@ -407,15 +384,9 @@ module __systolic__SystolicArray_0_next__1(
       __systolic__hor_chans__1_0_has_been_sent_reg <= 1'h0;
       __systolic__vert_chans__0_1_has_been_sent_reg <= 1'h0;
       __systolic__out0_has_been_sent_reg <= 1'h0;
-      __systolic__arg0_reg[0][0] <= __systolic__arg0_reg_init[0][0];
-      __systolic__arg0_reg[0][1] <= __systolic__arg0_reg_init[0][1];
-      __systolic__arg0_reg[1][0] <= __systolic__arg0_reg_init[1][0];
-      __systolic__arg0_reg[1][1] <= __systolic__arg0_reg_init[1][1];
+      __systolic__arg0_reg <= __systolic__arg0_reg_init;
       __systolic__arg0_valid_reg <= 1'h0;
-      __systolic__arg1_reg[0][0] <= __systolic__arg1_reg_init[0][0];
-      __systolic__arg1_reg[0][1] <= __systolic__arg1_reg_init[0][1];
-      __systolic__arg1_reg[1][0] <= __systolic__arg1_reg_init[1][0];
-      __systolic__arg1_reg[1][1] <= __systolic__arg1_reg_init[1][1];
+      __systolic__arg1_reg <= __systolic__arg1_reg_init;
       __systolic__arg1_valid_reg <= 1'h0;
       __systolic__hor_chans__0_2_reg <= 32'h0000_0000;
       __systolic__hor_chans__0_2_valid_reg <= 1'h0;
@@ -441,10 +412,7 @@ module __systolic__SystolicArray_0_next__1(
       __systolic__hor_chans__1_0_valid_reg <= 1'h0;
       __systolic__vert_chans__0_1_reg <= 32'h0000_0000;
       __systolic__vert_chans__0_1_valid_reg <= 1'h0;
-      __systolic__out0_reg[0][0] <= __systolic__out0_reg_init[0][0];
-      __systolic__out0_reg[0][1] <= __systolic__out0_reg_init[0][1];
-      __systolic__out0_reg[1][0] <= __systolic__out0_reg_init[1][0];
-      __systolic__out0_reg[1][1] <= __systolic__out0_reg_init[1][1];
+      __systolic__out0_reg <= __systolic__out0_reg_init;
       __systolic__out0_valid_reg <= 1'h0;
     end else begin
       ____state_2 <= or_1619 ? one_hot_sel_1618 : ____state_2;
@@ -462,15 +430,9 @@ module __systolic__SystolicArray_0_next__1(
       __systolic__hor_chans__1_0_has_been_sent_reg <= __systolic__hor_chans__1_0_has_been_sent_reg_load_en ? __systolic__hor_chans__0_0_not_stage_load : __systolic__hor_chans__1_0_has_been_sent_reg;
       __systolic__vert_chans__0_1_has_been_sent_reg <= __systolic__vert_chans__0_1_has_been_sent_reg_load_en ? __systolic__hor_chans__0_0_not_stage_load : __systolic__vert_chans__0_1_has_been_sent_reg;
       __systolic__out0_has_been_sent_reg <= __systolic__out0_has_been_sent_reg_load_en ? __systolic__out0_not_stage_load : __systolic__out0_has_been_sent_reg;
-      __systolic__arg0_reg[0][0] <= systolic__arg0_load_en ? systolic__arg0_unflattened[0][0] : __systolic__arg0_reg[0][0];
-      __systolic__arg0_reg[0][1] <= systolic__arg0_load_en ? systolic__arg0_unflattened[0][1] : __systolic__arg0_reg[0][1];
-      __systolic__arg0_reg[1][0] <= systolic__arg0_load_en ? systolic__arg0_unflattened[1][0] : __systolic__arg0_reg[1][0];
-      __systolic__arg0_reg[1][1] <= systolic__arg0_load_en ? systolic__arg0_unflattened[1][1] : __systolic__arg0_reg[1][1];
+      __systolic__arg0_reg <= systolic__arg0_load_en ? systolic__arg0_unflattened : __systolic__arg0_reg;
       __systolic__arg0_valid_reg <= systolic__arg0_valid_load_en ? systolic__arg0_vld : __systolic__arg0_valid_reg;
-      __systolic__arg1_reg[0][0] <= systolic__arg1_load_en ? systolic__arg1_unflattened[0][0] : __systolic__arg1_reg[0][0];
-      __systolic__arg1_reg[0][1] <= systolic__arg1_load_en ? systolic__arg1_unflattened[0][1] : __systolic__arg1_reg[0][1];
-      __systolic__arg1_reg[1][0] <= systolic__arg1_load_en ? systolic__arg1_unflattened[1][0] : __systolic__arg1_reg[1][0];
-      __systolic__arg1_reg[1][1] <= systolic__arg1_load_en ? systolic__arg1_unflattened[1][1] : __systolic__arg1_reg[1][1];
+      __systolic__arg1_reg <= systolic__arg1_load_en ? systolic__arg1_unflattened : __systolic__arg1_reg;
       __systolic__arg1_valid_reg <= systolic__arg1_valid_load_en ? systolic__arg1_vld : __systolic__arg1_valid_reg;
       __systolic__hor_chans__0_2_reg <= systolic__hor_chans__0_2_load_en ? systolic__hor_chans__0_2 : __systolic__hor_chans__0_2_reg;
       __systolic__hor_chans__0_2_valid_reg <= systolic__hor_chans__0_2_valid_load_en ? systolic__hor_chans__0_2_vld : __systolic__hor_chans__0_2_valid_reg;
@@ -496,10 +458,7 @@ module __systolic__SystolicArray_0_next__1(
       __systolic__hor_chans__1_0_valid_reg <= systolic__hor_chans__1_0_valid_load_en ? __systolic__hor_chans__1_0_valid_and_not_has_been_sent : __systolic__hor_chans__1_0_valid_reg;
       __systolic__vert_chans__0_1_reg <= systolic__vert_chans__0_1_load_en ? __systolic__vert_chans__0_1_buf : __systolic__vert_chans__0_1_reg;
       __systolic__vert_chans__0_1_valid_reg <= systolic__vert_chans__0_1_valid_load_en ? __systolic__vert_chans__0_1_valid_and_not_has_been_sent : __systolic__vert_chans__0_1_valid_reg;
-      __systolic__out0_reg[0][0] <= systolic__out0_load_en ? c[0][0] : __systolic__out0_reg[0][0];
-      __systolic__out0_reg[0][1] <= systolic__out0_load_en ? c[0][1] : __systolic__out0_reg[0][1];
-      __systolic__out0_reg[1][0] <= systolic__out0_load_en ? c[1][0] : __systolic__out0_reg[1][0];
-      __systolic__out0_reg[1][1] <= systolic__out0_load_en ? c[1][1] : __systolic__out0_reg[1][1];
+      __systolic__out0_reg <= systolic__out0_load_en ? c : __systolic__out0_reg;
       __systolic__out0_valid_reg <= systolic__out0_valid_load_en ? __systolic__out0_valid_and_not_has_been_sent : __systolic__out0_valid_reg;
     end
   end
@@ -523,6 +482,9 @@ module __systolic__SystolicArray_0_next__1(
   assign systolic__vert_chans__0_1_vld = __systolic__vert_chans__0_1_valid_reg;
   assign systolic__vert_chans__2_0_rdy = systolic__vert_chans__2_0_load_en;
   assign systolic__vert_chans__2_1_rdy = systolic__vert_chans__2_1_load_en;
+  `ifdef ASSERT_ON
+  ____state_2__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2840))) or_2840) else $fatal(0, "More than one next_value fired for state element: __state_2");
+  `endif  // ASSERT_ON
 endmodule
 
 
@@ -680,11 +642,11 @@ module __systolic__SystolicArray__PE_0_next(
   assign __systolic__vert_chans__1_0_has_been_sent_reg_load_en = __systolic__vert_chans__1_0_valid_and_ready_txfr | __systolic__hor_chans__0_1_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__0_0_not_stage_load = ~__systolic__result_chans__0_0_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__0_0_has_been_sent_reg_load_en = __systolic__result_chans__0_0_valid_and_ready_txfr | __systolic__result_chans__0_0_valid_and_all_active_outputs_ready;
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     p0_a <= p0_load_en ? __systolic__hor_chans__0_0_reg : p0_a;
     p0_b <= p0_load_en ? __systolic__vert_chans__0_0_reg : p0_b;
   end
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     if (rst) begin
       ____state_1 <= 1'h0;
       ____state_0 <= 32'h0000_0000;
@@ -729,6 +691,10 @@ module __systolic__SystolicArray__PE_0_next(
   assign systolic__vert_chans__0_0_rdy = systolic__vert_chans__0_0_load_en;
   assign systolic__vert_chans__1_0 = __systolic__vert_chans__1_0_reg;
   assign systolic__vert_chans__1_0_vld = __systolic__vert_chans__1_0_valid_reg;
+  `ifdef ASSERT_ON
+  ____state_0__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2842))) or_2842) else $fatal(0, "More than one next_value fired for state element: __state_0");
+  ____state_1__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2842))) or_2842) else $fatal(0, "More than one next_value fired for state element: __state_1");
+  `endif  // ASSERT_ON
 endmodule
 
 
@@ -886,11 +852,11 @@ module __systolic__SystolicArray__PE_1_next(
   assign __systolic__vert_chans__1_1_has_been_sent_reg_load_en = __systolic__vert_chans__1_1_valid_and_ready_txfr | __systolic__hor_chans__0_2_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__0_1_not_stage_load = ~__systolic__result_chans__0_1_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__0_1_has_been_sent_reg_load_en = __systolic__result_chans__0_1_valid_and_ready_txfr | __systolic__result_chans__0_1_valid_and_all_active_outputs_ready;
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     p0_a <= p0_load_en ? __systolic__hor_chans__0_1_reg : p0_a;
     p0_b <= p0_load_en ? __systolic__vert_chans__0_1_reg : p0_b;
   end
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     if (rst) begin
       ____state_1 <= 1'h0;
       ____state_0 <= 32'h0000_0000;
@@ -935,6 +901,10 @@ module __systolic__SystolicArray__PE_1_next(
   assign systolic__vert_chans__0_1_rdy = systolic__vert_chans__0_1_load_en;
   assign systolic__vert_chans__1_1 = __systolic__vert_chans__1_1_reg;
   assign systolic__vert_chans__1_1_vld = __systolic__vert_chans__1_1_valid_reg;
+  `ifdef ASSERT_ON
+  ____state_0__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2846))) or_2846) else $fatal(0, "More than one next_value fired for state element: __state_0");
+  ____state_1__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2846))) or_2846) else $fatal(0, "More than one next_value fired for state element: __state_1");
+  `endif  // ASSERT_ON
 endmodule
 
 
@@ -1092,11 +1062,11 @@ module __systolic__SystolicArray__PE_2_next(
   assign __systolic__vert_chans__2_0_has_been_sent_reg_load_en = __systolic__vert_chans__2_0_valid_and_ready_txfr | __systolic__hor_chans__1_1_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__1_0_not_stage_load = ~__systolic__result_chans__1_0_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__1_0_has_been_sent_reg_load_en = __systolic__result_chans__1_0_valid_and_ready_txfr | __systolic__result_chans__1_0_valid_and_all_active_outputs_ready;
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     p0_a <= p0_load_en ? __systolic__hor_chans__1_0_reg : p0_a;
     p0_b <= p0_load_en ? __systolic__vert_chans__1_0_reg : p0_b;
   end
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     if (rst) begin
       ____state_1 <= 1'h0;
       ____state_0 <= 32'h0000_0000;
@@ -1141,6 +1111,10 @@ module __systolic__SystolicArray__PE_2_next(
   assign systolic__vert_chans__1_0_rdy = systolic__vert_chans__1_0_load_en;
   assign systolic__vert_chans__2_0 = __systolic__vert_chans__2_0_reg;
   assign systolic__vert_chans__2_0_vld = __systolic__vert_chans__2_0_valid_reg;
+  `ifdef ASSERT_ON
+  ____state_0__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2850))) or_2850) else $fatal(0, "More than one next_value fired for state element: __state_0");
+  ____state_1__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2850))) or_2850) else $fatal(0, "More than one next_value fired for state element: __state_1");
+  `endif  // ASSERT_ON
 endmodule
 
 
@@ -1298,11 +1272,11 @@ module __systolic__SystolicArray__PE_3_next(
   assign __systolic__vert_chans__2_1_has_been_sent_reg_load_en = __systolic__vert_chans__2_1_valid_and_ready_txfr | __systolic__hor_chans__1_2_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__1_1_not_stage_load = ~__systolic__result_chans__1_1_valid_and_all_active_outputs_ready;
   assign __systolic__result_chans__1_1_has_been_sent_reg_load_en = __systolic__result_chans__1_1_valid_and_ready_txfr | __systolic__result_chans__1_1_valid_and_all_active_outputs_ready;
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     p0_a <= p0_load_en ? __systolic__hor_chans__1_1_reg : p0_a;
     p0_b <= p0_load_en ? __systolic__vert_chans__1_1_reg : p0_b;
   end
-  always @ (posedge clk) begin
+  always_ff @ (posedge clk) begin
     if (rst) begin
       ____state_1 <= 1'h0;
       ____state_0 <= 32'h0000_0000;
@@ -1347,6 +1321,10 @@ module __systolic__SystolicArray__PE_3_next(
   assign systolic__vert_chans__1_1_rdy = systolic__vert_chans__1_1_load_en;
   assign systolic__vert_chans__2_1 = __systolic__vert_chans__2_1_reg;
   assign systolic__vert_chans__2_1_vld = __systolic__vert_chans__2_1_valid_reg;
+  `ifdef ASSERT_ON
+  ____state_0__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2854))) or_2854) else $fatal(0, "More than one next_value fired for state element: __state_0");
+  ____state_1__at_most_one_next_value_assert: assert property (@(posedge clk) disable iff ($sampled(rst !== 1'h0 || $isunknown(or_2854))) or_2854) else $fatal(0, "More than one next_value fired for state element: __state_1");
+  `endif  // ASSERT_ON
 endmodule
 
 
@@ -1363,12 +1341,12 @@ module __systolic__SystolicArray_0_next(
   output wire [127:0] systolic__out0,
   output wire systolic__out0_vld
 );
-  wire [31:0] systolic__arg0_unflattened[0:1][0:1];
+  wire [31:0] systolic__arg0_unflattened[2][2];
   assign systolic__arg0_unflattened[0][0] = systolic__arg0[31:0];
   assign systolic__arg0_unflattened[0][1] = systolic__arg0[63:32];
   assign systolic__arg0_unflattened[1][0] = systolic__arg0[95:64];
   assign systolic__arg0_unflattened[1][1] = systolic__arg0[127:96];
-  wire [31:0] systolic__arg1_unflattened[0:1][0:1];
+  wire [31:0] systolic__arg1_unflattened[2][2];
   assign systolic__arg1_unflattened[0][0] = systolic__arg1[31:0];
   assign systolic__arg1_unflattened[0][1] = systolic__arg1[63:32];
   assign systolic__arg1_unflattened[1][0] = systolic__arg1[95:64];
@@ -1381,7 +1359,7 @@ module __systolic__SystolicArray_0_next(
   wire [31:0] instantiation_output_2665;
   wire instantiation_output_2666;
   wire instantiation_output_2699;
-  wire [31:0] instantiation_output_2703[0:1][0:1];
+  wire [31:0] instantiation_output_2703[2][2];
   wire instantiation_output_2704;
   wire instantiation_output_2718;
   wire instantiation_output_2731;

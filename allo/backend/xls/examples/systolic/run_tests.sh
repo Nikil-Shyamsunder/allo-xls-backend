@@ -4,7 +4,7 @@
 
 set -e  # Exit on error
 
-XLS_DIR="/scratch/users/zrs29/xls/xls"
+XLS_DIR="/scratch/cys36/xls"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=========================================================================="
@@ -58,7 +58,7 @@ for variant in "${VARIANTS[@]}"; do
     fi
 
     # Run interpreter_main (disable warnings as errors for generated code style issues)
-    if $XLS_DIR/interpreter_main --warnings_as_errors=false $STDLIB_FLAG "$COMBINED_FILE" 2>&1; then
+    if $XLS_DIR/bazel-bin/xls/dslx/interpreter_main --warnings_as_errors=false $STDLIB_FLAG "$COMBINED_FILE" 2>&1; then
         echo "✅ All tests passed for $variant"
         PASSED=$((PASSED + 1))
     else

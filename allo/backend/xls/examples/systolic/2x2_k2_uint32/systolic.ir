@@ -28,7 +28,7 @@ fn __systolic__PE.init() -> (bits[32], bits[32]) {
   ret tuple.3: (bits[32], bits[32]) = tuple(literal.1, literal.2, id=3, pos=[(0,18,9)])
 }
 
-proc __systolic__SystolicArray_0_next(__state: (bits[32][2][2], bits[32][2][2], bits[32], bits[1]), init={([[0, 0], [0, 0]], [[0, 0], [0, 0]], 0, 0)}) {
+top proc __systolic__SystolicArray_0_next(__state: (bits[32][2][2], bits[32][2][2], bits[32], bits[1]), init={([[0, 0], [0, 0]], [[0, 0], [0, 0]], 0, 0)}) {
   __state: (bits[32][2][2], bits[32][2][2], bits[32], bits[1]) = state_read(state_element=__state, id=5)
   index0: bits[32] = tuple_index(__state, index=2, id=9, pos=[(0,65,21)])
   literal.11: bits[32] = literal(value=0, id=11, pos=[(0,66,46)])

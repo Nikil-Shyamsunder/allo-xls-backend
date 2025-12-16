@@ -1,0 +1,1 @@
+./generate_all_verilog.sh: line 52: /scratch/cys36/xls/bazel-bin/xls/tools/opt_main: No such file or directory

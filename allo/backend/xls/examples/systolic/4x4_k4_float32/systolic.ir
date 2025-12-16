@@ -1,10 +1,10 @@
 package systolic
 
-file_number 0 "/scratch/users/zrs29/xls/xls/xls/dslx/stdlib/apfloat.x"
-file_number 1 "/scratch/users/zrs29/xls/xls/xls/dslx/stdlib/float32.x"
+file_number 0 "/scratch/cys36/xls/xls/dslx/stdlib/apfloat.x"
+file_number 1 "/scratch/cys36/xls/xls/dslx/stdlib/float32.x"
 file_number 2 "systolic.x"
-file_number 3 "/scratch/users/zrs29/xls/xls/xls/dslx/stdlib/std.x"
-file_number 4 "/scratch/users/zrs29/xls/xls/xls/dslx/stdlib/abs_diff.x"
+file_number 3 "/scratch/cys36/xls/xls/dslx/stdlib/std.x"
+file_number 4 "/scratch/cys36/xls/xls/dslx/stdlib/abs_diff.x"
 
 chan systolic__arg0((bits[1], bits[8], bits[23])[4][4], id=0, kind=streaming, ops=receive_only, flow_control=ready_valid, strictness=proven_mutually_exclusive)
 chan systolic__arg1((bits[1], bits[8], bits[23])[4][4], id=1, kind=streaming, ops=receive_only, flow_control=ready_valid, strictness=proven_mutually_exclusive)
@@ -87,7 +87,7 @@ fn __systolic__PE.init() -> ((bits[1], bits[8], bits[23]), bits[32]) {
   ret tuple.14: ((bits[1], bits[8], bits[23]), bits[32]) = tuple(invoke.12, literal.13, id=14, pos=[(2,19,9)])
 }
 
-proc __systolic__SystolicArray_0_next(__state: ((bits[1], bits[8], bits[23])[4][4], (bits[1], bits[8], bits[23])[4][4], bits[32], bits[1]), init={([[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]], [[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]], 0, 0)}) {
+top proc __systolic__SystolicArray_0_next(__state: ((bits[1], bits[8], bits[23])[4][4], (bits[1], bits[8], bits[23])[4][4], bits[32], bits[1]), init={([[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]], [[(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)], [(0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]], 0, 0)}) {
   __state: ((bits[1], bits[8], bits[23])[4][4], (bits[1], bits[8], bits[23])[4][4], bits[32], bits[1]) = state_read(state_element=__state, id=1001)
   index0: bits[32] = tuple_index(__state, index=2, id=1005, pos=[(2,66,21)])
   literal.1007: bits[32] = literal(value=0, id=1007, pos=[(2,67,46)])
