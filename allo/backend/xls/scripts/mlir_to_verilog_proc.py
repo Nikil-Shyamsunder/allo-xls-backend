@@ -34,6 +34,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 try:
     from allo._mlir.ir import Module as MlirModule
     from allo._mlir import ir as mlir_ir
+    from allo._mlir.dialects import allo as allo_d
     from allo.backend.xls.lowering import MlirToDslxProcLowererAST
 except ImportError as e:
     print(f"Error: Failed to import allo modules: {e}", file=sys.stderr)
@@ -41,13 +42,15 @@ except ImportError as e:
     sys.exit(1)
 
 # XLS tools directory
-XLS_DIR = "/scratch/users/zrs29/xls/xls"
+XLS_DIR = "/scratch/cys36/xls/bazel-bin/xls"
 
 
 def parse_mlir(mlir_text):
     """Parse MLIR text into a module."""
     try:
         with mlir_ir.Context() as ctx:
+            # Register allo dialect to handle custom stream types
+            allo_d.register_dialect(ctx)
             module = MlirModule.parse(mlir_text, ctx)
             return module
     except Exception as e:
@@ -69,13 +72,14 @@ def mlir_to_dslx(mlir_module):
         raise RuntimeError(f"Failed to convert MLIR to DSLX: {e}")
 
 
-def dslx_to_ir(dslx_path):
+def dslx_to_ir(dslx_path, top="SystolicArray"):
     """Convert DSLX to XLS IR using ir_converter_main."""
     try:
         result = subprocess.run(
-            [f"{XLS_DIR}/ir_converter_main",
+            [f"{XLS_DIR}/dslx/ir_convert/ir_converter_main",
              "--warnings_as_errors=false",
-             "--dslx_stdlib_path=/scratch/users/zrs29/xls/xls/xls/dslx/stdlib",
+             "--dslx_stdlib_path=/scratch/cys36/xls/xls/dslx/stdlib",
+             f"--top={top}",
              str(dslx_path)],
             capture_output=True,
             text=True,
@@ -95,19 +99,25 @@ def dslx_to_ir(dslx_path):
 def optimize_ir(ir_text, ir_path):
     """Optimize XLS IR using opt_main."""
     try:
-        # Extract the top proc name from IR
+        # Extract the top proc name from IR - look for "top proc" marker or main SystolicArray
         top_name = None
         for line in ir_text.splitlines():
-            if line.strip().startswith("proc "):
-                # Extract proc name: "proc __name__(...)" -> "__name__"
-                top_name = line.split("proc ")[1].split("(")[0].strip()
+            # First try to find the proc marked as "top"
+            if "top proc " in line and "SystolicArray" in line:
+                # Extract proc name: "top proc __name__(...)" -> "__name__"
+                proc_name = line.split("top proc ")[1].split("(")[0].strip()
+                top_name = proc_name
                 break
+            # Fallback: find SystolicArray proc that's not a PE
+            elif line.strip().startswith("proc ") and "SystolicArray" in line and "__PE_" not in line:
+                proc_name = line.split("proc ")[1].split("(")[0].strip()
+                top_name = proc_name
 
         if not top_name:
             raise RuntimeError("Could not find top proc name in IR")
 
         result = subprocess.run(
-            [f"{XLS_DIR}/opt_main",
+            [f"{XLS_DIR}/tools/opt_main",
              f"--top={top_name}",
              str(ir_path)],
             capture_output=True,
@@ -128,23 +138,30 @@ def optimize_ir(ir_text, ir_path):
 def generate_verilog(opt_ir_path, top_name, pipeline_stages=5):
     """Generate Verilog from optimized IR using codegen_main."""
     try:
-        # Try different pipeline stages if needed
-        for stages in [pipeline_stages, 1, 2]:
-            result = subprocess.run(
-                [f"{XLS_DIR}/codegen_main",
-                 "--generator=pipeline",
-                 "--delay_model=unit",
-                 f"--pipeline_stages={stages}",
-                 "--reset=rst",
-                 f"--top={top_name}",
-                 str(opt_ir_path)],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+        # Use similar codegen args as XLS BUILD system
+        result = subprocess.run(
+            [f"{XLS_DIR}/tools/codegen_main",
+             "--generator=pipeline",
+             "--delay_model=unit",
+             f"--pipeline_stages={pipeline_stages}",
+             "--reset=rst",
+             "--reset_data_path=false",
+             "--reset_active_low=false",
+             "--reset_asynchronous=false",
+             "--use_system_verilog=true",
+             f"--top={top_name}",
+             "--multi_proc=true",
+             "--streaming_channel_data_suffix=",
+             "--streaming_channel_valid_suffix=_vld",
+             "--streaming_channel_ready_suffix=_rdy",
+             str(opt_ir_path)],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
 
-            if result.returncode == 0:
-                return result.stdout
+        if result.returncode == 0:
+            return result.stdout
 
         raise RuntimeError(f"Verilog generation failed:\n{result.stderr}")
     except subprocess.TimeoutExpired:
@@ -260,7 +277,7 @@ Examples:
 
         # STAGE 3: DSLX → XLS IR
         print("[3/5] DSLX → XLS IR...")
-        ir_text = dslx_to_ir(dslx_path)
+        ir_text = dslx_to_ir(dslx_path, top="SystolicArray")
 
         with open(ir_path, 'w') as f:
             f.write(ir_text)

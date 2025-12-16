@@ -13,7 +13,7 @@ from ..systolic import (
     MatrixDimensionExtractor
 )
 from ..systolic.detector import SystolicDetector
-from ..systolic.metaif_translator import MetaIfSystolicTranslator
+from ..systolic.metaif_analyzer import MetaIfSystolicAnalyzer
 from ..builders import XLSSystolicArrayBuilder
 from ..dslx_ast import DslxProcSerializer
 
@@ -149,16 +149,37 @@ class MlirToDslxProcLowererAST:
             return error_msg
 
     def _lower_metaif_pattern(self):
-        """Lower meta_if-style systolic array (unrolled functions per grid position)."""
+        """Lower meta_if-style systolic array using XLSSystolicArrayBuilder.
+        
+        Instead of trying to generate individual PE procs from unrolled functions,
+        we extract the systolic parameters (M, N, K, type) and use the builder
+        to generate proper XLS-compatible code with unroll_for! constructs.
+        """
         try:
-            print("[AST Lowerer] Attempting meta_if pattern translation")
+            print("[AST Lowerer] Attempting meta_if pattern translation using XLSSystolicArrayBuilder")
             
-            # Pass the appropriate object to the translator
-            translator_input = self.module if self.module else self.module_op
-            translator = MetaIfSystolicTranslator(translator_input)
+            # Pass the appropriate object to the analyzer
+            analyzer_input = self.module if self.module else self.module_op
+            analyzer = MetaIfSystolicAnalyzer(analyzer_input)
             
-            # Use the translator
-            dslx_code = translator.generate_dslx()
+            # Extract systolic parameters from MLIR
+            params = analyzer.extract_parameters()
+            
+            print(f"[AST Lowerer] Extracted parameters: M={params['M']}, N={params['N']}, K={params['K']}, type={params['type']}")
+            
+            # Use XLSSystolicArrayBuilder to generate proper code
+            from allo.backend.xls.builders.xls_systolic_builder import XLSSystolicArrayBuilder
+            
+            builder = XLSSystolicArrayBuilder(
+                rows=params['M'],
+                cols=params['N'],
+                k_bound=params['K'],
+                elem_type=params['type']
+            )
+            
+            module = builder.build_module()
+            serializer = DslxProcSerializer()
+            dslx_code = serializer.serialize(module)
             
             print(f"[AST Lowerer] Generated {len(dslx_code.splitlines())} lines of DSLX from meta_if pattern")
             

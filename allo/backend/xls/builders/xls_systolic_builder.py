@@ -191,9 +191,14 @@ class XLSSystolicArrayBuilder:
         type_params = []
 
         # Matrix type definitions for cleaner code
-        a_matrix_type = f"{self.elem_type}[{self.rows}][{self.k_bound}]"
-        b_matrix_type = f"{self.elem_type}[{self.k_bound}][{self.cols}]"
-        c_matrix_type = f"{self.elem_type}[{self.rows}][{self.cols}]"
+        # DSLX array type dimensions are swapped from typical mathematical notation
+        # For a matrix with `rows` rows and `k_bound` columns, DSLX type is [k_bound][rows]
+        # This is because DSLX interprets Type[A][B] as "array of A elements, each of type array of B"
+        # So the init literal [[e0, e1], [e2, e3], [e4, e5]] with 3 outer arrays of 2 elements
+        # needs type [2][3] not [3][2]
+        a_matrix_type = f"{self.elem_type}[{self.k_bound}][{self.rows}]"
+        b_matrix_type = f"{self.elem_type}[{self.cols}][{self.k_bound}]"
+        c_matrix_type = f"{self.elem_type}[{self.cols}][{self.rows}]"
 
         # Array channel declarations - matrix inputs/outputs like eric2x2
         channels = [
