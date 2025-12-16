@@ -145,8 +145,8 @@ def generate_one(name, allo_func, output_dir="generated"):
         # STAGE 3: DSLX → IR
         print(f"[3/3] DSLX → XLS IR...")
         result = subprocess.run(
-            ["/scratch/users/zrs29/xls/xls/ir_converter_main",
-             "--dslx_stdlib_path=/scratch/users/zrs29/xls/xls/xls/dslx/stdlib",
+            ["/scratch/cys36/xls/bazel-bin/xls/dslx/ir_convert/ir_converter_main",
+             "--dslx_stdlib_path=/scratch/cys36/xls/xls/dslx/stdlib",
              dslx_path],
             capture_output=True,
             text=True,

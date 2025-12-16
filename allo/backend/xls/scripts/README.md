@@ -22,7 +22,7 @@ MLIR → DSLX → XLS IR → Optimized IR → Verilog
 ### Prerequisites
 
 - Allo-XLS backend installed and in Python path
-- XLS tools available at `/scratch/users/zrs29/xls/xls/`
+- XLS tools available at `/scratch/cys36/xls`
   - `ir_converter_main`
   - `opt_main`
   - `codegen_main`

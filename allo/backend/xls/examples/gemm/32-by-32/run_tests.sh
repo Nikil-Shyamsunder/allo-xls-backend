@@ -4,7 +4,7 @@
 set -e  # Exit on error
 
 # XLS interpreter path
-INTERPRETER="/scratch/users/zrs29/xls/xls/interpreter_main"
+INTERPRETER="/scratch/cys36/xls/bazel-bin/xls/dslx/interpreter_main"
 
 # Colors for output
 GREEN='\033[0;32m'

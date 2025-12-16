@@ -128,7 +128,7 @@ def generate_variant(rows, cols, k, type_name, allo_type, output_dir="generated"
         print(f"[3/3] Converting DSLX → XLS IR...")
 
         result = subprocess.run(
-            ["/scratch/users/zrs29/xls/xls/ir_converter_main", dslx_path],
+            ["/scratch/cys36/xls/bazel-bin/xls/dslx/ir_convert/ir_converter_main", dslx_path],
             capture_output=True,
             text=True,
             timeout=30

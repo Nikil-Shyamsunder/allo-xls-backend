@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-XLS_DIR="/scratch/users/zrs29/xls/xls"
+XLS_DIR="/scratch/cys36/xls"
 DSLX_FILE="/home/nvs26/allo-xls-backend/allo/backend/xls/tests/generated/xls_concrete_2x2_k2.x"
 TOP="__xls_concrete_2x2_k2__SystolicArray_0_next"
 

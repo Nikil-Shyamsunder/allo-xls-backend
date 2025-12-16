@@ -12,12 +12,12 @@ conda activate allo
 
 Additionally, ensure that the following environment variables are set:
 - `LLVM_BUILD_DIR`: Path to your LLVM build directory
-- Run on `zhang-21.ece.cornell.edu`
-- XLS tools should be available at `/scratch/users/zrs29/xls/xls/`
-
-If you decide to use `havarti.cs.cornell.edu.` as your server of choice:
+- Use `havarti.cs.cornell.edu.` as your server of choice:
 - For conda, `conda activate axls`
 - Just run everything from the `/scratch/cys36` directory
+
+Alternatively, you can use the `zhang-21.ece.cornell.edu` server:
+- XLS tools should be available at `/scratch/users/zrs29/xls/xls/`
 
 ## Directory Structure
 

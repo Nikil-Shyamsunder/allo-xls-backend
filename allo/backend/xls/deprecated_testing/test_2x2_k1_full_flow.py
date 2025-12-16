@@ -23,7 +23,7 @@ def systolic_2x2_k1_uint32(A: "uint32[2, 1]", B: "uint32[1, 2]") -> "uint32[2, 2
 
 
 def main():
-    XLS_DIR = "/scratch/users/zrs29/xls/xls"
+    XLS_DIR = "/scratch/cys36/xls"
     OUTPUT_DIR = "/home/nvs26/allo-xls-backend/allo/backend/xls/tests/generated"
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 

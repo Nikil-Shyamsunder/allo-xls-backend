@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run all differential tests
 
-INTERPRETER="/scratch/users/zrs29/xls/xls/interpreter_main"
+INTERPRETER="/scratch/cys36/xls/bazel-bin/xls/dslx/interpreter_main"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIFF_DIR="$SCRIPT_DIR/differential"
 

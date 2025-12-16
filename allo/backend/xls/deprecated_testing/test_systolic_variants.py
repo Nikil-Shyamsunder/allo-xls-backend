@@ -24,8 +24,8 @@ def run_test(rows, cols, k, elem_type):
     
     # Run XLS interpreter
     result = subprocess.run(
-        ["/scratch/users/zrs29/xls/xls/interpreter_main",
-         "--dslx_stdlib_path=/scratch/users/zrs29/xls/xls/xls/dslx/stdlib",
+        ["/scratch/cys36/xls/bazel-bin/xls/dslx/interpreter_main",
+         "--dslx_stdlib_path=/scratch/cys36/xls/xls/dslx/stdlib",
          filename],
         capture_output=True,
         text=True,
