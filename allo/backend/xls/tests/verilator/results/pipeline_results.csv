@@ -1,0 +1,21 @@
+Variant,Rows,Cols,K,Type,Pipeline_Stages,Status,Cycle_Count,Notes
+2x2_k2_float32,2,2,2,float32,1,CODEGEN_FAIL,N/A,Verilog generation error
+2x2_k2_float32,2,2,2,float32,2,PASS,16,
+2x2_k2_float32,2,2,2,float32,3,PASS,17,
+2x2_k2_float32,2,2,2,float32,5,PASS,18,
+2x2_k2_float32,2,2,2,float32,7,PASS,19,
+2x2_k2_int32,2,2,2,int32,1,CODEGEN_FAIL,N/A,Verilog generation error
+2x2_k2_int32,2,2,2,int32,2,PASS,18,
+2x2_k2_int32,2,2,2,int32,3,PASS,19,
+2x2_k2_int32,2,2,2,int32,5,PASS,22,
+2x2_k2_int32,2,2,2,int32,7,PASS,30,
+3x3_k2_uint32,3,3,2,uint32,1,CODEGEN_FAIL,N/A,Verilog generation error
+3x3_k2_uint32,3,3,2,uint32,2,PASS,26,
+3x3_k2_uint32,3,3,2,uint32,3,PASS,27,
+3x3_k2_uint32,3,3,2,uint32,5,PASS,30,
+3x3_k2_uint32,3,3,2,uint32,7,PASS,41,
+4x4_k4_int32,4,4,4,int32,1,CODEGEN_FAIL,N/A,Verilog generation error
+4x4_k4_int32,4,4,4,int32,2,PASS,38,
+4x4_k4_int32,4,4,4,int32,3,NO_OUTPUT,1480,No valid output
+4x4_k4_int32,4,4,4,int32,5,NO_OUTPUT,1480,No valid output
+4x4_k4_int32,4,4,4,int32,7,NO_OUTPUT,1480,No valid output

@@ -1,6 +1,8 @@
 **.pyc
 **/*.pyc
 **/build
+**/build_*
+build_*/
 **/test.ll
 **/*.log
 build

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <cmath>
 
 #ifndef ROWS
 #define ROWS 2
@@ -29,6 +30,19 @@
 #define TYPE_SIZE 32
 #endif
 
+// Helper to convert float to bits and back
+inline uint32_t float_to_bits(float f) {
+    uint32_t bits;
+    memcpy(&bits, &f, sizeof(float));
+    return bits;
+}
+
+inline float bits_to_float(uint32_t bits) {
+    float f;
+    memcpy(&f, &bits, sizeof(float));
+    return f;
+}
+
 // Compute expected result: C = A * B
 void compute_expected(const ELEM_TYPE A[ROWS][K_BOUND], 
                      const ELEM_TYPE B[K_BOUND][COLS],
@@ -47,14 +61,22 @@ void compute_expected(const ELEM_TYPE A[ROWS][K_BOUND],
 // Pack matrix into flat array for Verilog input
 void pack_matrix(const ELEM_TYPE* matrix, int rows, int cols, uint32_t* packed) {
     for (int i = 0; i < rows * cols; i++) {
+        #ifdef IS_FLOAT
+        packed[i] = float_to_bits((float)matrix[i]);
+        #else
         packed[i] = (uint32_t)matrix[i];
+        #endif
     }
 }
 
 // Unpack flat array from Verilog output into matrix
 void unpack_matrix(const uint32_t* packed, int rows, int cols, ELEM_TYPE* matrix) {
     for (int i = 0; i < rows * cols; i++) {
+        #ifdef IS_FLOAT
+        matrix[i] = (ELEM_TYPE)bits_to_float(packed[i]);
+        #else
         matrix[i] = (ELEM_TYPE)packed[i];
+        #endif
     }
 }
 
@@ -166,11 +188,22 @@ int main(int argc, char** argv) {
             bool all_match = true;
             for (int i = 0; i < ROWS; i++) {
                 for (int j = 0; j < COLS; j++) {
+                    #ifdef IS_FLOAT
+                    // For float, use epsilon comparison
+                    float epsilon = 0.001f;
+                    if (fabs(C_actual[i][j] - C_expected[i][j]) > epsilon) {
+                        all_match = false;
+                        printf("Mismatch at C[%d][%d]: expected %.2f, got %.2f\n", 
+                               i, j, (float)C_expected[i][j], (float)C_actual[i][j]);
+                    }
+                    #else
+                    // For integers, use exact comparison
                     if (C_actual[i][j] != C_expected[i][j]) {
                         all_match = false;
                         printf("Mismatch at C[%d][%d]: expected %d, got %d\n", 
                                i, j, (int)C_expected[i][j], (int)C_actual[i][j]);
                     }
+                    #endif
                 }
             }
             

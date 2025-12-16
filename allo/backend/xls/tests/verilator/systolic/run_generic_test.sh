@@ -40,6 +40,7 @@ case $TYPE in
         ;;
     float32)
         CTYPE="float"
+        CFLAGS_EXTRA="-DIS_FLOAT"
         ;;
     *)
         echo "Error: Unsupported type '$TYPE'"
@@ -76,7 +77,7 @@ fi
 # Run verilator
 echo "Running Verilator..."
 verilator --cc --exe \
-    -CFLAGS "-DROWS=$ROWS -DCOLS=$COLS -DK_BOUND=$K_BOUND -DELEM_TYPE=$CTYPE" \
+    -CFLAGS "-DROWS=$ROWS -DCOLS=$COLS -DK_BOUND=$K_BOUND -DELEM_TYPE=$CTYPE ${CFLAGS_EXTRA:-}" \
     --trace \
     --build \
     -j 0 \

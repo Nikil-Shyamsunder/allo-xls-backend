@@ -135,7 +135,7 @@ def optimize_ir(ir_text, ir_path):
         raise RuntimeError(f"Failed to optimize IR: {e}")
 
 
-def generate_verilog(opt_ir_path, top_name, pipeline_stages=5):
+def generate_verilog(opt_ir_path, top_name, pipeline_stages=2):
     """Generate Verilog from optimized IR using codegen_main."""
     try:
         # Use similar codegen args as XLS BUILD system
@@ -206,8 +206,8 @@ Examples:
     parser.add_argument(
         '--pipeline-stages',
         type=int,
-        default=5,
-        help='Number of pipeline stages for Verilog generation (default: 5)'
+        default=2,
+        help='Number of pipeline stages for Verilog generation (default: 2)'
     )
     parser.add_argument(
         '--name',

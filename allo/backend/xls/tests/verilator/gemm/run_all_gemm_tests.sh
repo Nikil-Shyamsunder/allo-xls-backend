@@ -2,7 +2,10 @@
 
 # Script to test all GEMM SystemVerilog variants and collect pipeline latency
 
-CSV_FILE="gemm_results.csv"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RESULTS_DIR="$SCRIPT_DIR/../results"
+mkdir -p "$RESULTS_DIR"
+CSV_FILE="$RESULTS_DIR/gemm_results.csv"
 GEMM_DIR="$HOME/allo-xls-backend/allo/backend/xls/tests/verilator/gemm"
 
 # Create CSV header
