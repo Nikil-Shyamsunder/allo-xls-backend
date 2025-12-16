@@ -12,6 +12,8 @@ from ..systolic import (
     PEAnalyzer,
     MatrixDimensionExtractor
 )
+from ..systolic.detector import SystolicDetector
+from ..systolic.metaif_translator import MetaIfSystolicTranslator
 from ..builders import XLSSystolicArrayBuilder
 from ..dslx_ast import DslxProcSerializer
 
@@ -23,8 +25,18 @@ class MlirToDslxProcLowererAST:
     but uses AST builders internally.
     """
 
-    def __init__(self, module_op):
-        self.module_op = module_op
+    def __init__(self, module_or_op):
+        # Handle both Module and Operation
+        if hasattr(module_or_op, 'body') and hasattr(module_or_op.body, 'operations'):
+            # It's a Module
+            self.module = module_or_op
+            self.module_op = module_or_op.operation if hasattr(module_or_op, 'operation') else None
+        elif hasattr(module_or_op, 'regions'):
+            # It's an Operation
+            self.module = None
+            self.module_op = module_or_op
+        else:
+            raise ValueError(f"Cannot handle {type(module_or_op)}")
 
     def lower(self, grid_func_name=None, pe_func_name=None):
         """Lower MLIR to DSLX using AST builders.
@@ -37,13 +49,47 @@ class MlirToDslxProcLowererAST:
             str: Generated DSLX code
         """
         try:
-            # Step 1: Find functions
+            # Step 0: Try to detect which pattern we have
+            # Pass the right object to detector (it handles both Module and Operation)
+            detector_input = self.module if self.module else self.module_op
+            detector = SystolicDetector(detector_input)
+            has_library_pattern = detector.is_systolic()
+            has_metaif_pattern = detector.is_metaif_systolic()
+            
+            if has_library_pattern:
+                print("[AST Lowerer] Detected library-style systolic array pattern")
+                return self._lower_library_pattern(grid_func_name, pe_func_name)
+            elif has_metaif_pattern:
+                print("[AST Lowerer] Detected meta_if-style systolic array pattern")
+                return self._lower_metaif_pattern()
+            else:
+                return "// ERROR: No recognized systolic array pattern found\n"
+
+        except Exception as e:
+            import traceback
+            error_msg = f"// ERROR during AST lowering: {str(e)}\n"
+            error_msg += "// Traceback:\n"
+            for line in traceback.format_exc().split('\n'):
+                error_msg += f"// {line}\n"
+            return error_msg
+
+    def _lower_library_pattern(self, grid_func_name=None, pe_func_name=None):
+        """Lower library-style systolic array (with systolic_tile and PE_kernel)."""
+        try:
+            # Use detector to find functions
+            detector_input = self.module if self.module else self.module_op
+            detector = SystolicDetector(detector_input)
+            
+            # Must call is_systolic() to populate the function fields
+            detector.is_systolic()
+            
+            # Get functions from detector
             grid_func = (self._find_function(grid_func_name) 
                         if grid_func_name 
-                        else self._auto_find_grid_func())
+                        else detector.get_systolic_tile_func())
             pe_func = (self._find_function(pe_func_name) 
                       if pe_func_name 
-                      else self._auto_find_pe_func(grid_func))
+                      else detector.get_pe_kernel_func())
 
             if not grid_func or not pe_func:
                 return "// ERROR: Could not find required functions\n"
@@ -96,7 +142,31 @@ class MlirToDslxProcLowererAST:
 
         except Exception as e:
             import traceback
-            error_msg = f"// ERROR during AST lowering: {str(e)}\n"
+            error_msg = f"// ERROR during library pattern lowering: {str(e)}\n"
+            error_msg += "// Traceback:\n"
+            for line in traceback.format_exc().split('\n'):
+                error_msg += f"// {line}\n"
+            return error_msg
+
+    def _lower_metaif_pattern(self):
+        """Lower meta_if-style systolic array (unrolled functions per grid position)."""
+        try:
+            print("[AST Lowerer] Attempting meta_if pattern translation")
+            
+            # Pass the appropriate object to the translator
+            translator_input = self.module if self.module else self.module_op
+            translator = MetaIfSystolicTranslator(translator_input)
+            
+            # Use the translator
+            dslx_code = translator.generate_dslx()
+            
+            print(f"[AST Lowerer] Generated {len(dslx_code.splitlines())} lines of DSLX from meta_if pattern")
+            
+            return dslx_code
+            
+        except Exception as e:
+            import traceback
+            error_msg = f"// ERROR during meta_if pattern lowering: {str(e)}\n"
             error_msg += "// Traceback:\n"
             for line in traceback.format_exc().split('\n'):
                 error_msg += f"// {line}\n"
@@ -104,7 +174,8 @@ class MlirToDslxProcLowererAST:
 
     def _find_function(self, name):
         """Find function by exact name."""
-        for op in self.module_op.body.operations:
+        operations = self.module.body.operations if self.module else self.module_op.regions[0].blocks[0].operations
+        for op in operations:
             if isinstance(op, func_d.FuncOp) and op.name.value == name:
                 return op
         return None
@@ -113,7 +184,8 @@ class MlirToDslxProcLowererAST:
         """Auto-detect grid function by finding nested loops with func.call."""
         from allo._mlir.dialects import affine as affine_d
 
-        for op in self.module_op.body.operations:
+        operations = self.module.body.operations if self.module else self.module_op.regions[0].blocks[0].operations
+        for op in operations:
             if not isinstance(op, func_d.FuncOp):
                 continue
 
@@ -133,10 +205,12 @@ class MlirToDslxProcLowererAST:
         from allo._mlir.dialects import affine as affine_d
 
         try:
-            for op in loop_op.body.operations:
-                if isinstance(op, affine_d.AffineForOp):
-                    if self._contains_func_call(op):
-                        return True
+            for region in loop_op.regions:
+                for block in region.blocks:
+                    for op in block.operations:
+                        if isinstance(op, affine_d.AffineForOp):
+                            if self._contains_func_call(op):
+                                return True
         except:
             pass
         return False
@@ -144,9 +218,11 @@ class MlirToDslxProcLowererAST:
     def _contains_func_call(self, loop_op):
         """Check if loop contains func.call."""
         try:
-            for op in loop_op.body.operations:
-                if isinstance(op, func_d.CallOp):
-                    return True
+            for region in loop_op.regions:
+                for block in region.blocks:
+                    for op in block.operations:
+                        if isinstance(op, func_d.CallOp):
+                            return True
         except:
             pass
         return False
@@ -184,7 +260,8 @@ class MlirToDslxProcLowererAST:
         """
         candidates = []
 
-        for op in self.module_op.body.operations:
+        operations = self.module.body.operations if self.module else self.module_op.regions[0].blocks[0].operations
+        for op in operations:
             if not isinstance(op, func_d.FuncOp):
                 continue
 

@@ -16,24 +16,35 @@ class GridExtractor:
 
     def extract(self):
         """Extract grid dimensions (rows, cols)."""
-        # Find nested loops with PE calls
+        # Try to find nested loops with PE calls first
         pe_loops = self._find_pe_loop_nest()
 
-        if not pe_loops or len(pe_loops) < 2:
-            raise ValueError("Could not find PE grid loops")
-
-        # Extract loop bounds
-        outer_loop, inner_loop = pe_loops[0], pe_loops[1]
-
-        rows = self._extract_upper_bound(outer_loop)
-        cols = self._extract_upper_bound(inner_loop)
-
-        return {
-            'rows': rows,
-            'cols': cols,
-            'outer_loop': outer_loop,
-            'inner_loop': inner_loop
-        }
+        if pe_loops and len(pe_loops) >= 2:
+            # Extract loop bounds from nested loops
+            outer_loop, inner_loop = pe_loops[0], pe_loops[1]
+            rows = self._extract_upper_bound(outer_loop)
+            cols = self._extract_upper_bound(inner_loop)
+            
+            return {
+                'rows': rows,
+                'cols': cols,
+                'outer_loop': outer_loop,
+                'inner_loop': inner_loop
+            }
+        
+        # Fallback: Count PE function calls to infer grid dimensions
+        # This handles cases where PEs are directly instantiated without loops
+        pe_calls = self._count_pe_calls()
+        if pe_calls:
+            rows, cols = self._infer_grid_from_calls(pe_calls)
+            return {
+                'rows': rows,
+                'cols': cols,
+                'outer_loop': None,
+                'inner_loop': None
+            }
+        
+        raise ValueError("Could not find PE grid loops or PE calls")
 
     def _find_pe_loop_nest(self):
         """Find the nested loops that contain PE calls."""
@@ -95,6 +106,48 @@ class GridExtractor:
         except:
             pass
         return 0
+
+    def _count_pe_calls(self):
+        """Count PE function calls and extract their positions."""
+        pe_calls = []
+        try:
+            for block in self.tile_func.body.blocks:
+                for op in block.operations:
+                    if isinstance(op, func_d.CallOp):
+                        # Try different ways to get the callee name
+                        callee = None
+                        if 'callee' in op.attributes:
+                            callee = str(op.attributes['callee']).strip('"@')
+                        elif hasattr(op, 'callee'):
+                            callee = str(op.callee).strip('"@')
+                        
+                        if callee and ('PE_kernel' in callee or 'PE' in callee):
+                            # Try to extract position from function name (e.g., PE_kernel_small_1_2)
+                            match = re.search(r'_(\d+)_(\d+)$', callee)
+                            if match:
+                                row = int(match.group(1))
+                                col = int(match.group(2))
+                                pe_calls.append((row, col, callee))
+        except Exception as e:
+            import traceback
+            print(f"DEBUG: Error in _count_pe_calls: {e}")
+            traceback.print_exc()
+        return pe_calls
+
+    def _infer_grid_from_calls(self, pe_calls):
+        """Infer grid dimensions from PE call positions."""
+        if not pe_calls:
+            return 0, 0
+        
+        # Find max row and col indices
+        max_row = max(call[0] for call in pe_calls)
+        max_col = max(call[1] for call in pe_calls)
+        
+        # Grid size is max_index + 1
+        rows = max_row + 1
+        cols = max_col + 1
+        
+        return rows, cols
 
 
 class FIFOAnalyzer:
