@@ -75,15 +75,16 @@ def mlir_to_dslx(mlir_module):
 def dslx_to_ir(dslx_path, top="SystolicArray"):
     """Convert DSLX to XLS IR using ir_converter_main."""
     try:
+        ir_converter = f"{XLS_DIR}/dslx/ir_convert/ir_converter_main.runfiles/_main/xls/dslx/ir_convert/ir_converter_main"
         result = subprocess.run(
-            [f"{XLS_DIR}/dslx/ir_convert/ir_converter_main",
+            [ir_converter,
              "--warnings_as_errors=false",
              "--dslx_stdlib_path=/scratch/cys36/xls/xls/dslx/stdlib",
              f"--top={top}",
              str(dslx_path)],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=300
         )
 
         if result.returncode != 0:
@@ -91,7 +92,7 @@ def dslx_to_ir(dslx_path, top="SystolicArray"):
 
         return result.stdout
     except subprocess.TimeoutExpired:
-        raise RuntimeError("IR conversion timed out after 30 seconds")
+        raise RuntimeError("IR conversion timed out after 300 seconds")
     except Exception as e:
         raise RuntimeError(f"Failed to convert DSLX to IR: {e}")
 
@@ -116,13 +117,14 @@ def optimize_ir(ir_text, ir_path):
         if not top_name:
             raise RuntimeError("Could not find top proc name in IR")
 
+        opt_main = f"{XLS_DIR}/tools/opt_main.runfiles/_main/xls/tools/opt_main"
         result = subprocess.run(
-            [f"{XLS_DIR}/tools/opt_main",
+            [opt_main,
              f"--top={top_name}",
              str(ir_path)],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=300
         )
 
         if result.returncode != 0:
@@ -130,17 +132,19 @@ def optimize_ir(ir_text, ir_path):
 
         return result.stdout, top_name
     except subprocess.TimeoutExpired:
-        raise RuntimeError("IR optimization timed out after 30 seconds")
+        raise RuntimeError("IR optimization timed out after 300 seconds")
     except Exception as e:
         raise RuntimeError(f"Failed to optimize IR: {e}")
 
 
-def generate_verilog(opt_ir_path, top_name, pipeline_stages=2):
+def generate_verilog(opt_ir_path, top_name, pipeline_stages=2, use_system_verilog=False):
     """Generate Verilog from optimized IR using codegen_main."""
     try:
         # Use similar codegen args as XLS BUILD system
+        codegen_main = f"{XLS_DIR}/tools/codegen_main.runfiles/_main/xls/tools/codegen_main"
+        sv_flag = "true" if use_system_verilog else "false"
         result = subprocess.run(
-            [f"{XLS_DIR}/tools/codegen_main",
+            [codegen_main,
              "--generator=pipeline",
              "--delay_model=unit",
              f"--pipeline_stages={pipeline_stages}",
@@ -148,7 +152,7 @@ def generate_verilog(opt_ir_path, top_name, pipeline_stages=2):
              "--reset_data_path=false",
              "--reset_active_low=false",
              "--reset_asynchronous=false",
-             "--use_system_verilog=true",
+             f"--use_system_verilog={sv_flag}",
              f"--top={top_name}",
              "--multi_proc=true",
              "--streaming_channel_data_suffix=",
@@ -157,7 +161,7 @@ def generate_verilog(opt_ir_path, top_name, pipeline_stages=2):
              str(opt_ir_path)],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=300
         )
 
         if result.returncode == 0:
@@ -165,7 +169,7 @@ def generate_verilog(opt_ir_path, top_name, pipeline_stages=2):
 
         raise RuntimeError(f"Verilog generation failed:\n{result.stderr}")
     except subprocess.TimeoutExpired:
-        raise RuntimeError("Verilog generation timed out after 30 seconds")
+        raise RuntimeError("Verilog generation timed out after 300 seconds")
     except Exception as e:
         raise RuntimeError(f"Failed to generate Verilog: {e}")
 
@@ -213,6 +217,11 @@ Examples:
         '--name',
         default='systolic',
         help='Base name for output files (default: systolic)'
+    )
+    parser.add_argument(
+        '--system-verilog',
+        action='store_true',
+        help='Generate SystemVerilog instead of Verilog'
     )
 
     args = parser.parse_args()
@@ -299,8 +308,11 @@ Examples:
         print()
 
         # STAGE 5: Generate Verilog
-        print("[5/5] Generate Verilog...")
-        verilog_text = generate_verilog(opt_ir_path, top_name, args.pipeline_stages)
+        file_ext = "sv" if args.system_verilog else "v"
+        verilog_path = output_dir / f"{name}.{file_ext}"
+        verilog_type = "SystemVerilog" if args.system_verilog else "Verilog"
+        print(f"[5/5] Generate {verilog_type}...")
+        verilog_text = generate_verilog(opt_ir_path, top_name, args.pipeline_stages, args.system_verilog)
 
         with open(verilog_path, 'w') as f:
             f.write(verilog_text)

@@ -61,6 +61,8 @@ class MlirToDslxLowerer:
             self.lower_mul(op)
         elif isinstance(op, arith_d.ExtSIOp):
             self.lower_extsi(op)
+        elif isinstance(op, arith_d.ExtUIOp):
+            self.lower_extui(op)
         elif isinstance(op, arith_d.TruncIOp):
             self.lower_trunci(op)
         elif isinstance(op, linalg_d.FillOp):
@@ -114,6 +116,10 @@ class MlirToDslxLowerer:
         self.ctx.bind(op.result, node)
 
     def lower_extsi(self, op: arith_d.ExtSIOp):
+        operand = self.ctx.lookup(op.operands[0])
+        self.ctx.bind(op.result, operand)
+
+    def lower_extui(self, op: arith_d.ExtUIOp):
         operand = self.ctx.lookup(op.operands[0])
         self.ctx.bind(op.result, operand)
 

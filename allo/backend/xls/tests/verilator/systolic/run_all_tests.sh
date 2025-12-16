@@ -14,6 +14,7 @@ echo ""
 # Find all variant directories (only test meta_systolic for now)
 VARIANTS=(
     "$EXAMPLES_DIR/meta_systolic/2x2_k2_int32"
+    "$EXAMPLES_DIR/meta_systolic/2x2_k2_uint32"
     "$EXAMPLES_DIR/meta_systolic/2x2_k2_float32"
     "$EXAMPLES_DIR/meta_systolic/3x3_k2_uint32"
     "$EXAMPLES_DIR/meta_systolic/4x4_k4_int32"

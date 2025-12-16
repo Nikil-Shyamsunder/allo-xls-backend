@@ -50,18 +50,10 @@ test_variant() {
     
     echo "Testing $variant_name with $stages pipeline stages..."
     
-    # Check for optimized IR
-    if [ ! -f "$variant_dir/systolic_opt.ir" ]; then
-        echo "  ✗ No systolic_opt.ir found"
-        echo "$variant_name,$rows,$cols,$k,$type,$stages,MISSING_IR,N/A,No optimized IR file" >> "$RESULTS_CSV"
-        return 1
-    fi
-    
-    # Extract top name
-    local top_name=$(grep "top proc" "$variant_dir/systolic_opt.ir" | head -1 | sed 's/.*top proc \([^(]*\).*/\1/')
-    if [ -z "$top_name" ]; then
-        echo "  ✗ Could not extract top proc name"
-        echo "$variant_name,$rows,$cols,$k,$type,$stages,ERROR,N/A,Could not extract top name" >> "$RESULTS_CSV"
+    # Check for MLIR
+    if [ ! -f "$variant_dir/systolic.mlir" ]; then
+        echo "  ✗ No systolic.mlir found"
+        echo "$variant_name,$rows,$cols,$k,$type,$stages,MISSING_MLIR,N/A,No MLIR file" >> "$RESULTS_CSV"
         return 1
     fi
     
@@ -69,41 +61,40 @@ test_variant() {
     local build_dir="$BUILD_BASE/${variant_name}_p${stages}"
     mkdir -p "$build_dir"
     
-    # Generate Verilog
-    $XLS_DIR/tools/codegen_main \
-        --generator=pipeline \
-        --delay_model=unit \
-        --pipeline_stages=$stages \
-        --reset=rst \
-        --reset_data_path=false \
-        --reset_active_low=false \
-        --reset_asynchronous=false \
-        --use_system_verilog=true \
-        --top=$top_name \
-        --multi_proc=true \
-        --streaming_channel_data_suffix= \
-        --streaming_channel_valid_suffix=_vld \
-        --streaming_channel_ready_suffix=_rdy \
-        "$variant_dir/systolic_opt.ir" > "$build_dir/systolic.v" 2>&1
+    # Generate Verilog using Python script
+    cd "$variant_dir"
+    python /scratch/cys36/allo-xls-backend/allo/backend/xls/scripts/mlir_to_verilog_proc.py \
+        systolic.mlir \
+        -o "$build_dir" \
+        --pipeline-stages $stages \
+        --name systolic \
+        > "$build_dir/codegen.log" 2>&1
     
     if [ $? -ne 0 ]; then
         echo "  ✗ Verilog generation failed"
         echo "$variant_name,$rows,$cols,$k,$type,$stages,CODEGEN_FAIL,N/A,Verilog generation error" >> "$RESULTS_CSV"
+        cd "$SCRIPT_DIR"
         return 1
     fi
+    
+    cd "$SCRIPT_DIR"
     
     # Copy FIFO wrapper
     cp /scratch/cys36/xls/xls/modules/zstd/rtl/xls_fifo_wrapper.sv "$build_dir/" 2>/dev/null
     
-    # Determine testbench based on type
-    local tb_file="$SCRIPT_DIR/systolic_tb_generic.cpp"
+    # Determine testbench type based on type
     local cflags=""
+    local elem_type="int32_t"
     if [ "$type" == "float32" ]; then
         cflags="-DIS_FLOAT"
+        elem_type="float"
+    elif [ "$type" == "uint32" ]; then
+        elem_type="uint32_t"
     fi
     
     # Set dimensions for testbench
-    local extra_cflags="-DROWS=$rows -DCOLS=$cols -DK_BOUND=$k $cflags"
+    local tb_file="$SCRIPT_DIR/systolic_tb_generic.cpp"
+    local extra_cflags="-DROWS=$rows -DCOLS=$cols -DK_BOUND=$k -DELEM_TYPE=$elem_type $cflags"
     
     # Compile with Verilator
     verilator --cc --exe --trace --build -j 0 --Wno-fatal \

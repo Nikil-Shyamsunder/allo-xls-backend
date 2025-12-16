@@ -107,6 +107,8 @@ class MlirToXlsIRLowerer:
             self.lower_mul(op)
         elif isinstance(op, arith_d.ExtSIOp):
             self.lower_extsi(op)
+        elif isinstance(op, arith_d.ExtUIOp):
+            self.lower_extui(op)
         elif isinstance(op, arith_d.TruncIOp):
             self.lower_trunci(op)
         elif isinstance(op, linalg_d.FillOp):
@@ -184,6 +186,14 @@ class MlirToXlsIRLowerer:
         result = self.ctx.fresh_name("ext")
         # XLS IR: sign_ext to 64 bits
         self.ctx.emit(f"  {result}: bits[64] = sign_ext({operand}, new_bit_count=64)")
+        self.ctx.bind(op.result, result)
+
+    def lower_extui(self, op: arith_d.ExtUIOp):
+        """Lower unsigned zero extension."""
+        operand = self.ctx.lookup(op.operands[0])
+        result = self.ctx.fresh_name("ext")
+        # XLS IR: zero_ext to 64 bits
+        self.ctx.emit(f"  {result}: bits[64] = zero_ext({operand}, new_bit_count=64)")
         self.ctx.bind(op.result, result)
 
     def lower_trunci(self, op: arith_d.TruncIOp):
